@@ -74,7 +74,7 @@ uv run pytest tests/test_exporter.py -v
 uv run pytest tests/ --cov --cov-report=html
 ```
 
-**Current coverage:** 66% (53 tests passing)
+**Current coverage:** 67% (55 tests passing)
 
 ### Code Quality
 
@@ -320,7 +320,7 @@ This project was created entirely through **AI-assisted "vibe-coding"** with Cla
 
 - **Version**: 0.1.0
 - **Status**: Functional, experimental
-- **Tests**: 54 passing, 66% coverage
+- **Tests**: 55 passing, 67% coverage
 - **Python**: 3.9+
 - **Licence**: CC0 (Public Domain)
 - **Repository**: https://github.com/McCio/keyring-to-kdbx

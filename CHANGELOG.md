@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Export credentials from system keyring to KeePass KDBX format
 - Custom attribute preservation - All original keyring metadata mapped to KDBX custom properties (enables KeePassXC Secret Service integration)
 - Support for Linux (GNOME Keyring, KWallet), macOS (Keychain), and Windows (Credential Manager)
+- Support for SecretService backends using `get_preferred_collection()` method for credential enumeration
 - Create new or update existing KDBX databases
 - Three conflict resolution strategies: skip, overwrite, rename
 - Three group organisation strategies: flat, by-service, by-domain
@@ -20,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **KeePassXC Secret Service integration** - Exported entries preserve all original keyring attributes (such as `service`, `application`, `xdg:schema`, etc.) as KDBX custom properties for seamless integration with KeePassXC's libsecret backend
 - Command-line interface with comprehensive options
 - Programmatic Python API for automation
-- 54 unit tests with 66% code coverage focused on behavioral verification
+- 55 unit tests with 67% code coverage focused on behavioral verification
 - Example scripts for programmatic usage
 - Comprehensive documentation including:
   - README.md - Development guide and project overview

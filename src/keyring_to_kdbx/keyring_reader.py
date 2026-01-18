@@ -99,6 +99,35 @@ class KeyringReader:
             except Exception as e:
                 logger.warning(f"get_all_credentials failed: {e}")
 
+        # Try to use get_preferred_collection method (SecretService backend)
+        elif hasattr(self.backend, "get_preferred_collection"):
+            logger.debug("Using get_preferred_collection method")
+            try:
+                collection = self.backend.get_preferred_collection()
+                if collection is not None:
+                    for item in collection.get_all_items():
+                        attributes = item.get_attributes()
+                        service = attributes.get(
+                            "service", attributes.get("application", "unknown")
+                        )
+                        username = attributes.get(
+                            "username", attributes.get("user", "")
+                        )
+
+                        if service and username:
+                            password = keyring.get_password(service, username)
+                            if password:
+                                yield KeyringEntry(
+                                    service=service,
+                                    username=username,
+                                    password=password,
+                                    attributes=dict(attributes)
+                                    if attributes
+                                    else None,
+                                )
+            except Exception as e:
+                logger.warning(f"get_preferred_collection failed: {e}")
+
         # Try to use the collection property (SecretService backend)
         elif (
             hasattr(self.backend, "collection")

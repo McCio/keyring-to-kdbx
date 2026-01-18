@@ -170,13 +170,71 @@ class TestKeyringReader:
             assert entries[1].password == "password2"
 
     @patch("keyring_to_kdbx.keyring_reader.keyring.get_keyring")
+    def test_get_all_credentials_with_get_preferred_collection(
+        self, mock_get_keyring
+    ):
+        """Test that get_preferred_collection method correctly retrieves credentials."""
+        mock_backend = Mock()
+        mock_backend.__class__.__name__ = "SecretServiceKeyring"
+
+        # Backend doesn't have get_all_credentials but has get_preferred_collection
+        del mock_backend.get_all_credentials
+
+        # Mock collection items
+        mock_item1 = Mock()
+        mock_item1.get_attributes.return_value = {
+            "service": "service1",
+            "username": "user1",
+        }
+
+        mock_item2 = Mock()
+        mock_item2.get_attributes.return_value = {
+            "service": "service2",
+            "username": "user2",
+        }
+
+        mock_collection = Mock()
+        mock_collection.get_all_items.return_value = [mock_item1, mock_item2]
+        mock_backend.get_preferred_collection.return_value = mock_collection
+
+        mock_get_keyring.return_value = mock_backend
+
+        with patch(
+            "keyring_to_kdbx.keyring_reader.keyring.get_password"
+        ) as mock_get_password:
+            mock_get_password.side_effect = ["password1", "password2"]
+
+            reader = KeyringReader()
+            entries = reader.get_all_credentials()
+
+            # Verify it calls get_preferred_collection
+            mock_backend.get_preferred_collection.assert_called_once()
+
+            # Verify it correctly extracts service/username from attributes
+            assert mock_item1.get_attributes.called
+            assert mock_item2.get_attributes.called
+
+            # Verify it retrieves passwords for extracted credentials
+            assert mock_get_password.call_count == 2
+            mock_get_password.assert_any_call("service1", "user1")
+            mock_get_password.assert_any_call("service2", "user2")
+
+            assert len(entries) == 2
+            assert entries[0].service == "service1"
+            assert entries[0].password == "password1"
+            assert entries[1].service == "service2"
+            assert entries[1].password == "password2"
+
+    @patch("keyring_to_kdbx.keyring_reader.keyring.get_keyring")
     def test_get_all_credentials_with_collection(self, mock_get_keyring):
         """Test that collection property fallback correctly extracts attributes."""
         mock_backend = Mock()
         mock_backend.__class__.__name__ = "SecretServiceKeyring"
 
-        # Backend doesn't have get_all_credentials but has collection
+        # Backend doesn't have get_all_credentials or get_preferred_collection but has collection
         del mock_backend.get_all_credentials
+        if hasattr(mock_backend, "get_preferred_collection"):
+            del mock_backend.get_preferred_collection
 
         # Mock collection items
         mock_item1 = Mock()
