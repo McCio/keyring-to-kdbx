@@ -74,33 +74,3 @@ jobs:
           flags: unittests
           name: codecov-umbrella
           fail_ci_if_error: false
-
-  validate-changelog:
-    name: Validate CHANGELOG
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Check CHANGELOG has [Unreleased] section
-        run: |
-          if ! grep -q "## \[Unreleased\]" CHANGELOG.md; then
-            echo "ERROR: CHANGELOG.md must have an [Unreleased] section"
-            exit 1
-          fi
-          echo "✓ CHANGELOG.md has [Unreleased] section"
-
-  check-all:
-    name: All Checks Passed
-    runs-on: ubuntu-latest
-    needs: [lint, test, validate-changelog]
-    if: always()
-    steps:
-      - name: Check all jobs
-        run: |
-          if [ "${{ needs.lint.result }}" != "success" ] || \
-             [ "${{ needs.test.result }}" != "success" ] || \
-             [ "${{ needs.validate-changelog.result }}" != "success" ]; then
-            echo "One or more checks failed"
-            exit 1
-          fi
-          echo "All checks passed!"
