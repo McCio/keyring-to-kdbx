@@ -62,59 +62,54 @@ class TestKeyringReader:
         with pytest.raises(RuntimeError, match="No keyring backend available"):
             KeyringReader()
 
+    @patch("keyring_to_kdbx.keyring_reader.keyring.get_keyring")
     @patch("keyring_to_kdbx.keyring_reader.keyring.get_password")
-    def test_get_credential(self, mock_get_keyring):
+    def test_get_credential(self, mock_get_password, mock_get_keyring):
         """Test getting a specific credential constructs proper KeyringEntry."""
         mock_backend = Mock()
         mock_backend.__class__.__name__ = "SecretServiceKeyring"
         mock_get_keyring.return_value = mock_backend
+        mock_get_password.return_value = "test_password"
 
-        with patch("keyring_to_kdbx.keyring_reader.keyring.get_password") as mock_get_password:
-            mock_get_password.return_value = "test_password"
+        reader = KeyringReader()
+        entry = reader.get_credential("test_service", "test_user")
 
-            reader = KeyringReader()
-            entry = reader.get_credential("test_service", "test_user")
-
-            # Verify it returns a proper KeyringEntry object
-            assert isinstance(entry, KeyringEntry)
-            assert entry.service == "test_service"
-            assert entry.username == "test_user"
-            assert entry.password == "test_password"
-            # Verify password is hidden in repr (security check)
-            assert "test_password" not in repr(entry)
-            mock_get_password.assert_called_once_with("test_service", "test_user")
+        # Verify it returns a proper KeyringEntry object
+        assert isinstance(entry, KeyringEntry)
+        assert entry.service == "test_service"
+        assert entry.username == "test_user"
+        assert entry.password == "test_password"
+        # Verify password is hidden in repr (security check)
+        assert "test_password" not in repr(entry)
+        mock_get_password.assert_called_once_with("test_service", "test_user")
 
     @patch("keyring_to_kdbx.keyring_reader.keyring.get_keyring")
-    def test_get_credential_returns_none_not_exception(self, mock_get_keyring):
+    @patch("keyring_to_kdbx.keyring_reader.keyring.get_password")
+    def test_get_credential_returns_none_not_exception(self, mock_get_password, mock_get_keyring):
         """Test that missing credentials return None, not raise exceptions."""
         mock_backend = Mock()
         mock_backend.__class__.__name__ = "SecretServiceKeyring"
         mock_get_keyring.return_value = mock_backend
+        mock_get_password.return_value = None
 
-        with patch("keyring_to_kdbx.keyring_reader.keyring.get_password") as mock_get_password:
-            mock_get_password.return_value = None
-
-            reader = KeyringReader()
-            # Should return None, not raise exception
-            entry = reader.get_credential("nonexistent", "user")
-
-            assert entry is None
+        reader = KeyringReader()
+        entry = reader.get_credential("missing_service", "missing_user")
+        # Should return None for missing credentials, not raise exception
+        assert entry is None
 
     @patch("keyring_to_kdbx.keyring_reader.keyring.get_keyring")
-    def test_get_credential_handles_keyring_errors(self, mock_get_keyring):
+    @patch("keyring_to_kdbx.keyring_reader.keyring.get_password")
+    def test_get_credential_handles_keyring_errors(self, mock_get_password, mock_get_keyring):
         """Test that keyring errors are handled gracefully."""
         mock_backend = Mock()
         mock_backend.__class__.__name__ = "SecretServiceKeyring"
         mock_get_keyring.return_value = mock_backend
+        mock_get_password.side_effect = Exception("Keyring backend error")
 
-        with patch("keyring_to_kdbx.keyring_reader.keyring.get_password") as mock_get_password:
-            mock_get_password.side_effect = Exception("Keyring backend error")
-
-            reader = KeyringReader()
-            # Should handle error and return None
-            entry = reader.get_credential("service", "user")
-
-            assert entry is None
+        reader = KeyringReader()
+        entry = reader.get_credential("error_service", "error_user")
+        # Should handle exceptions and return None
+        assert entry is None
 
     @patch("keyring_to_kdbx.keyring_reader.keyring.get_keyring")
     def test_get_all_credentials_with_get_all_method(self, mock_get_keyring):
