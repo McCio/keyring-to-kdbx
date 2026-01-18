@@ -11,6 +11,29 @@ from pykeepass.group import Group
 logger = logging.getLogger(__name__)
 
 
+def _sanitize_entry_field(value: str) -> str:
+    """
+    Sanitize entry field values to avoid XPath issues in pykeepass.
+
+    pykeepass uses XPath queries that fail with certain special characters
+    like double quotes. This function removes or replaces problematic characters.
+
+    Args:
+        value: The field value to sanitize.
+
+    Returns:
+        Sanitized value safe for use in pykeepass operations.
+    """
+    if not value:
+        return value
+
+    # Remove double quotes that cause XPath "Invalid predicate" errors
+    # Single quotes are OK, but double quotes break the XPath query
+    sanitized = value.replace('"', "")
+
+    return sanitized
+
+
 class KdbxManager:
     """Manages KeePass database operations."""
 
@@ -159,9 +182,12 @@ class KdbxManager:
 
         logger.debug(f"Adding entry: {service}/{username}")
 
+        # Sanitize title to avoid XPath issues (username kept unchanged)
+        safe_service = _sanitize_entry_field(service)
+
         entry = self.kp.add_entry(
             destination_group=group,
-            title=service,
+            title=safe_service,
             username=username,
             password=password,
             notes=notes or "",
@@ -203,14 +229,17 @@ class KdbxManager:
             msg = "Database not initialised"
             raise RuntimeError(msg)
 
-        # If group is specified, search in that group
+        # Sanitize title to match what was stored (username kept unchanged)
+        safe_service = _sanitize_entry_field(service)
+
+        # Search for the entry
         group = None
         if group_name:
             group = self.kp.find_groups(name=group_name, first=True)
 
-        # Search for entry
+        # Search for entry using sanitized title
         entries = self.kp.find_entries(
-            title=service, username=username, first=False
+            title=safe_service, username=username, first=False
         )
 
         if not entries:

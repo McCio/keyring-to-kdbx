@@ -169,16 +169,24 @@ class TestKeyringReader:
             assert entries[1].username == "user2"
             assert entries[1].password == "password2"
 
+    @patch("keyring_to_kdbx.keyring_reader.secretstorage")
     @patch("keyring_to_kdbx.keyring_reader.keyring.get_keyring")
     def test_get_all_credentials_with_get_preferred_collection(
-        self, mock_get_keyring
+        self, mock_get_keyring, mock_secretstorage
     ):
-        """Test that get_preferred_collection method correctly retrieves credentials."""
+        """Test that secretstorage enumeration correctly retrieves credentials from all collections."""
         mock_backend = Mock()
         mock_backend.__class__.__name__ = "SecretServiceKeyring"
 
         # Backend doesn't have get_all_credentials but has get_preferred_collection
         del mock_backend.get_all_credentials
+        mock_backend.get_preferred_collection.return_value = Mock()
+
+        mock_get_keyring.return_value = mock_backend
+
+        # Mock secretstorage to return collections
+        mock_connection = Mock()
+        mock_secretstorage.dbus_init.return_value = mock_connection
 
         # Mock collection items
         mock_item1 = Mock()
@@ -186,44 +194,42 @@ class TestKeyringReader:
             "service": "service1",
             "username": "user1",
         }
+        mock_item1.get_secret.return_value = b"password1"
 
         mock_item2 = Mock()
         mock_item2.get_attributes.return_value = {
             "service": "service2",
             "username": "user2",
         }
+        mock_item2.get_secret.return_value = b"password2"
 
         mock_collection = Mock()
+        mock_collection.is_locked.return_value = False
+        mock_collection.get_label.return_value = "Test Collection"
         mock_collection.get_all_items.return_value = [mock_item1, mock_item2]
-        mock_backend.get_preferred_collection.return_value = mock_collection
 
-        mock_get_keyring.return_value = mock_backend
+        mock_secretstorage.get_all_collections.return_value = [mock_collection]
 
-        with patch(
-            "keyring_to_kdbx.keyring_reader.keyring.get_password"
-        ) as mock_get_password:
-            mock_get_password.side_effect = ["password1", "password2"]
+        reader = KeyringReader()
+        entries = reader.get_all_credentials()
 
-            reader = KeyringReader()
-            entries = reader.get_all_credentials()
+        # Verify it uses secretstorage
+        mock_secretstorage.dbus_init.assert_called_once()
+        mock_secretstorage.get_all_collections.assert_called_once()
 
-            # Verify it calls get_preferred_collection
-            mock_backend.get_preferred_collection.assert_called_once()
+        # Verify it correctly extracts service/username from attributes
+        assert mock_item1.get_attributes.called
+        assert mock_item2.get_attributes.called
 
-            # Verify it correctly extracts service/username from attributes
-            assert mock_item1.get_attributes.called
-            assert mock_item2.get_attributes.called
+        # Verify secrets retrieved directly from items
+        assert mock_item1.get_secret.called
+        assert mock_item2.get_secret.called
 
-            # Verify it retrieves passwords for extracted credentials
-            assert mock_get_password.call_count == 2
-            mock_get_password.assert_any_call("service1", "user1")
-            mock_get_password.assert_any_call("service2", "user2")
-
-            assert len(entries) == 2
-            assert entries[0].service == "service1"
-            assert entries[0].password == "password1"
-            assert entries[1].service == "service2"
-            assert entries[1].password == "password2"
+        assert len(entries) == 2
+        assert entries[0].service == "service1"
+        assert entries[0].password == "password1"
+        assert entries[1].service == "service2"
+        assert entries[1].password == "password2"
 
     @patch("keyring_to_kdbx.keyring_reader.keyring.get_keyring")
     def test_get_all_credentials_with_collection(self, mock_get_keyring):
@@ -395,8 +401,11 @@ class TestKeyringReader:
         # Should return False, not raise exception
         assert result is False
 
+    @patch("keyring_to_kdbx.keyring_reader.secretstorage")
     @patch("keyring_to_kdbx.keyring_reader.keyring.get_keyring")
-    def test_unsupported_backend_warning(self, mock_get_keyring):
+    def test_unsupported_backend_warning(
+        self, mock_get_keyring, mock_secretstorage
+    ):
         """Test warning is logged for unsupported backends."""
         mock_backend = Mock()
         mock_backend.__class__.__name__ = "UnsupportedKeyring"
@@ -404,9 +413,16 @@ class TestKeyringReader:
         # Remove methods that indicate enumeration support
         if hasattr(mock_backend, "get_all_credentials"):
             del mock_backend.get_all_credentials
+        if hasattr(mock_backend, "get_preferred_collection"):
+            del mock_backend.get_preferred_collection
         mock_backend.collection = None
 
         mock_get_keyring.return_value = mock_backend
+
+        # Mock secretstorage to return empty collections
+        mock_connection = Mock()
+        mock_secretstorage.dbus_init.return_value = mock_connection
+        mock_secretstorage.get_all_collections.return_value = []
 
         reader = KeyringReader()
         entries = reader.get_all_credentials()

@@ -301,6 +301,32 @@ class TestKdbxManagerEntries:
         with pytest.raises(RuntimeError, match="Database not initialised"):
             manager.add_entry("service", "user", "pass")
 
+    @patch("keyring_to_kdbx.kdbx_manager.create_database")
+    def test_add_entry_sanitizes_special_characters(
+        self, mock_create_db, temp_kdbx_path, test_password
+    ):
+        """Test that special characters like quotes are sanitized in title but not username."""
+        mock_kp = Mock()
+        mock_kp.root_group = Mock()
+        mock_entry = Mock()
+        mock_kp.add_entry.return_value = mock_entry
+        mock_create_db.return_value = mock_kp
+
+        manager = KdbxManager(temp_kdbx_path, test_password, create=True)
+        manager.add_entry(
+            service='"quoted-service"',
+            username='user"with"quotes',
+            password="test_pass",
+        )
+
+        # Verify title is sanitized (quotes removed) but username is unchanged
+        call_args = mock_kp.add_entry.call_args
+        assert call_args.kwargs["title"] == "quoted-service"
+        assert call_args.kwargs["username"] == 'user"with"quotes'
+
+        # Verify original title not used
+        assert call_args.kwargs["title"] != '"quoted-service"'
+
 
 class TestKdbxManagerPersistence:
     """Tests for database persistence."""
