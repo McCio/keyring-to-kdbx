@@ -312,7 +312,7 @@ Before considering any change complete:
 
 ### Technology Stack
 
-- **Python**: 3.9-3.13 (tested across all versions)
+- **Python**: 3.10-3.13 (tested across all versions)
 - **Package Manager**: uv (fast, modern, lockfile-based)
 - **Linting/Formatting**: ruff (replaces black, isort, flake8, mypy)
 - **Testing**: pytest with pytest-cov and pytest-mock
@@ -373,7 +373,7 @@ uv run ruff check . && uv run pytest tests/
 
 Automated workflows handle testing, releases, and dependency management:
 
-- **CI** (`ci.yml`): Linting, testing (Python 3.9-3.13), CHANGELOG validation on every push/PR
+- **CI** (`ci.yml`): Linting, testing (Python 3.10-3.13) on every push/PR
 - **Release** (`release.yml`): Automated PyPI publishing on version tags (`v*.*.*`)
 - **Coverage** (`coverage.yml`): Code coverage tracking with Codecov integration
 - **Dependencies** (`dependencies.yml`): Weekly security audits and outdated package monitoring

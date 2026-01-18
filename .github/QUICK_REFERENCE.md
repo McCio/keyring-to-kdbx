@@ -146,7 +146,7 @@ Update relevant files when changing code:
 ## 🔧 Workflows
 
 Files in `.github/workflows/`:
-- `ci.yml` - Lint, test (Python 3.9-3.13), validate (runs on every push/PR)
+- `ci.yml` - Lint, test (Python 3.10-3.13), validate (runs on every push/PR)
 - `release.yml` - Automated PyPI publishing (runs on version tags)
 - `coverage.yml` - Coverage tracking with Codecov
 - `dependencies.yml` - Weekly security audits
