@@ -1,5 +1,6 @@
 """Tests for kdbx_manager module."""
 
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -36,8 +37,14 @@ class TestKdbxManagerInit:
         # Verify create_database was called with correct arguments
         mock_create_db.assert_called_once()
         call_args = mock_create_db.call_args
-        assert str(temp_kdbx_path) in str(call_args)
-        assert test_password in call_args.args or test_password in call_args.kwargs.values()
+        # Compare paths as Path objects to handle Windows/Unix differences
+        called_path = (
+            Path(call_args.args[0])
+            if call_args.args
+            else Path(call_args.kwargs.get("filename", ""))
+        )
+        assert called_path == temp_kdbx_path
+        assert test_password in call_args.kwargs.values()
 
         # Verify manager is usable
         assert manager.kp is not None
@@ -63,7 +70,9 @@ class TestKdbxManagerInit:
         # Verify manager is usable
         assert manager.kp is not None
 
-    def test_open_nonexistent_database_raises_error(self, temp_kdbx_path, test_password):
+    def test_open_nonexistent_database_raises_error(
+        self, temp_kdbx_path, test_password
+    ):
         """Test opening a non-existent database raises FileNotFoundError."""
         with pytest.raises(FileNotFoundError):
             KdbxManager(temp_kdbx_path, test_password, create=False)
@@ -120,7 +129,9 @@ class TestKdbxManagerGroups:
         mock_kp.find_groups.assert_called_once()
 
         # Verify it creates only when not found
-        mock_kp.add_group.assert_called_once_with(mock_kp.root_group, "TestGroup")
+        mock_kp.add_group.assert_called_once_with(
+            mock_kp.root_group, "TestGroup"
+        )
 
         # Verify it returns the created group
         assert group == mock_new_group
@@ -145,7 +156,9 @@ class TestKdbxManagerGroups:
         assert group == mock_existing_group
         mock_kp.add_group.assert_not_called()
 
-    def test_get_or_create_group_without_init_raises_error(self, temp_kdbx_path, test_password):
+    def test_get_or_create_group_without_init_raises_error(
+        self, temp_kdbx_path, test_password
+    ):
         """Test that calling get_or_create_group without init raises error."""
         manager = KdbxManager.__new__(KdbxManager)
         manager.kp = None
@@ -190,7 +203,9 @@ class TestKdbxManagerEntries:
         assert call_kwargs["notes"] == "test notes"
 
     @patch("keyring_to_kdbx.kdbx_manager.create_database")
-    def test_add_entry_creates_group_if_needed(self, mock_create_db, temp_kdbx_path, test_password):
+    def test_add_entry_creates_group_if_needed(
+        self, mock_create_db, temp_kdbx_path, test_password
+    ):
         """Test that specifying group_name triggers group creation/retrieval."""
         mock_kp = Mock()
         mock_group = Mock()
@@ -217,7 +232,9 @@ class TestKdbxManagerEntries:
         assert call_args.kwargs["destination_group"] != mock_kp.root_group
 
     @patch("keyring_to_kdbx.kdbx_manager.create_database")
-    def test_find_entry_returns_first_match(self, mock_create_db, temp_kdbx_path, test_password):
+    def test_find_entry_returns_first_match(
+        self, mock_create_db, temp_kdbx_path, test_password
+    ):
         """Test that find_entry returns first match when multiple exist."""
         mock_kp = Mock()
         mock_entry1 = Mock()
@@ -253,7 +270,9 @@ class TestKdbxManagerEntries:
         assert found_entry is None
 
     @patch("keyring_to_kdbx.kdbx_manager.PyKeePass")
-    def test_update_entry_modifies_fields(self, mock_pykeepass, temp_kdbx_path, test_password):
+    def test_update_entry_modifies_fields(
+        self, mock_pykeepass, temp_kdbx_path, test_password
+    ):
         """Test that update_entry actually modifies the entry object."""
         mock_kp = Mock()
         mock_entry = Mock()
@@ -264,7 +283,9 @@ class TestKdbxManagerEntries:
         manager = KdbxManager(temp_kdbx_path, test_password, create=True)
 
         # Update specific fields
-        manager.update_entry(mock_entry, password="new_password", notes="new_notes")
+        manager.update_entry(
+            mock_entry, password="new_password", notes="new_notes"
+        )
 
         # Verify fields were changed
         assert mock_entry.password == "new_password"
@@ -274,7 +295,9 @@ class TestKdbxManagerEntries:
         assert mock_entry.password != "old_password"
         assert mock_entry.notes != "old_notes"
 
-    def test_add_entry_without_init_raises_error(self, temp_kdbx_path, test_password):
+    def test_add_entry_without_init_raises_error(
+        self, temp_kdbx_path, test_password
+    ):
         """Test that calling add_entry without init raises error."""
         manager = KdbxManager.__new__(KdbxManager)
         manager.kp = None
@@ -313,7 +336,9 @@ class TestKdbxManagerPersistence:
     """Tests for database persistence."""
 
     @patch("keyring_to_kdbx.kdbx_manager.create_database")
-    def test_save_can_be_called_multiple_times(self, mock_create_db, temp_kdbx_path, test_password):
+    def test_save_can_be_called_multiple_times(
+        self, mock_create_db, temp_kdbx_path, test_password
+    ):
         """Test that save() can be called multiple times without error."""
         mock_kp = Mock()
         mock_create_db.return_value = mock_kp
@@ -328,7 +353,9 @@ class TestKdbxManagerPersistence:
         # Verify all saves went through
         assert mock_kp.save.call_count == 3
 
-    def test_save_without_init_raises_error(self, temp_kdbx_path, test_password):
+    def test_save_without_init_raises_error(
+        self, temp_kdbx_path, test_password
+    ):
         """Test that calling save without init raises error."""
         manager = KdbxManager.__new__(KdbxManager)
         manager.kp = None
@@ -369,7 +396,9 @@ class TestKdbxManagerPersistence:
         assert count == 2
 
     @patch("keyring_to_kdbx.kdbx_manager.create_database")
-    def test_close_database_clears_reference(self, mock_create_db, temp_kdbx_path, test_password):
+    def test_close_database_clears_reference(
+        self, mock_create_db, temp_kdbx_path, test_password
+    ):
         """Test that closing database clears internal reference."""
         mock_kp = Mock()
         mock_create_db.return_value = mock_kp
@@ -443,7 +472,9 @@ class TestSecretServiceIntegration:
         assert set_attrs == original_attrs
 
     @patch("keyring_to_kdbx.kdbx_manager.create_database")
-    def test_add_entry_without_attributes(self, mock_create_db, temp_kdbx_path, test_password):
+    def test_add_entry_without_attributes(
+        self, mock_create_db, temp_kdbx_path, test_password
+    ):
         """Test that entries without attributes don't cause errors."""
         mock_kp = Mock()
         mock_kp.root_group = Mock()
@@ -466,7 +497,9 @@ class TestSecretServiceIntegration:
         mock_entry.set_custom_property.assert_not_called()
 
     @patch("keyring_to_kdbx.kdbx_manager.create_database")
-    def test_add_entry_with_empty_attributes(self, mock_create_db, temp_kdbx_path, test_password):
+    def test_add_entry_with_empty_attributes(
+        self, mock_create_db, temp_kdbx_path, test_password
+    ):
         """Test that empty attributes dict doesn't set properties."""
         mock_kp = Mock()
         mock_kp.root_group = Mock()
