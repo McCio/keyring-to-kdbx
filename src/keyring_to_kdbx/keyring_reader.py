@@ -142,10 +142,12 @@ class KeyringReader:
                         )
 
                         # Extract username from various possible attributes
+                        # Use goa-identity for GNOME Online Accounts to avoid duplicates
                         username = (
                             attributes.get("username")
                             or attributes.get("user")
                             or attributes.get("account")
+                            or attributes.get("goa-identity")
                             or ""
                         )
 
