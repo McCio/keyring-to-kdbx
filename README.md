@@ -233,8 +233,8 @@ This allows you to move from platform-specific keyring storage to cross-platform
 
 ## Documentation
 
-- **[docs/QUICKSTART.md](docs/QUICKSTART.md)** - User guide with examples and troubleshooting
-- **[AGENTS.md](AGENTS.md)** - Architecture and maintenance guide for developers
+- **[docs/QUICKSTART.md](docs/QUICKSTART.md)** - User guide with examples, safe testing instructions, and troubleshooting
+- **[AGENTS.md](AGENTS.md)** - Architecture and maintenance guide for developers and contributors
 - **[docs/AI_DEVELOPMENT.md](docs/AI_DEVELOPMENT.md)** - Details on AI-assisted development
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history
 

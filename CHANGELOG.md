@@ -7,8 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.0] - 2024-01-18
-
 ### Added
 
 - Export credentials from system keyring to KeePass KDBX format
@@ -22,10 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Command-line interface with comprehensive options
 - Programmatic Python API for automation
 - 54 unit tests with 66% code coverage focused on behavioral verification
-- Comprehensive documentation (README, AGENTS, QUICKSTART)
 - Example scripts for programmatic usage
-- Testing philosophy documentation emphasizing behavior verification over auto-referencing
-- Self-documenting directives system in AGENTS.md for capturing general instructions
+- Comprehensive documentation including:
+  - README.md - Development guide and project overview
+  - AGENTS.md - Architecture, maintenance directives, and comprehensive manual testing guide for developers
+  - QUICKSTART.md - User guide with safe testing instructions and KeePassXC integration workflow
+  - Testing philosophy emphasizing behavior verification over auto-referencing
+  - Self-documenting directives system for capturing general instructions
+  - CHANGELOG versioning directive to ensure changes remain under `[Unreleased]` until tagged
 
 ### Security
 
@@ -43,5 +45,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Type hints throughout codebase
 - Public domain dedication under CC0 1.0 Universal licence
 
-[Unreleased]: https://github.com/McCio/keyring-to-kdbx/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/McCio/keyring-to-kdbx/releases/tag/v0.1.0
+[Unreleased]: https://github.com/McCio/keyring-to-kdbx/commits/HEAD

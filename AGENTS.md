@@ -145,6 +145,7 @@ When a general development approach, workflow instruction, or architectural deci
 - "Use British English throughout" → Already documented in Context for AI Agents
 - "Group similar functions together" → Document in Code Quality Standards
 - "Prioritise security in credential handling" → Already documented in Security Considerations
+- "Keep changes under [Unreleased] until tagged" → Already documented in CHANGELOG Versioning (Maintenance Directives)
 
 **Purpose**: This creates a self-reinforcing documentation system where each interaction improves the project's knowledge base, reducing the need for repeated instructions and ensuring consistency across development sessions.
 
@@ -257,6 +258,38 @@ test: add behavioral verification for attribute preservation
 
 See: https://www.conventionalcommits.org/
 
+#### 8. CHANGELOG Versioning
+
+**Maintain [Unreleased] section** for all changes since the last tagged release:
+
+- **ALWAYS** add new changes under `[Unreleased]` at the top of CHANGELOG.md
+- **NEVER** create a new version section (e.g., `[0.2.0]`) without an actual git tag
+- Version sections are only created when a release is tagged and published
+- The `[Unreleased]` section accumulates all changes since the last tagged version
+
+**Structure**:
+```markdown
+## [Unreleased]
+
+### Added
+- New feature descriptions here
+
+### Changed
+- Modified feature descriptions here
+
+### Fixed
+- Bug fix descriptions here
+
+## [0.1.0] - 2024-01-18
+(Last tagged release)
+```
+
+**When a release is made**:
+1. Rename `[Unreleased]` to the new version with date
+2. Add new empty `[Unreleased]` section at top
+3. Update comparison links at bottom
+4. This happens only when the release is actually tagged
+
 ### Change Verification Checklist
 
 Before considering any change complete:
@@ -265,11 +298,12 @@ Before considering any change complete:
 - [ ] All `.md` files reviewed and updated as needed
 - [ ] Tests added/updated and passing (`uv run pytest tests/`)
 - [ ] **Tests verify behavior, not auto-reference** (see Testing Strategy)
+- [ ] **Manual testing performed if needed** (see Manual Testing section)
 - [ ] Examples tested if API changed
 - [ ] Ruff check passes (`uv run ruff check .`)
 - [ ] Type hints added for new code
 - [ ] Docstrings added/updated
-- [ ] CHANGELOG.md entry added
+- [ ] CHANGELOG.md entry added under `[Unreleased]` section
 - [ ] **Commit message follows Conventional Commits format**
 - [ ] Cross-references in docs still valid
 - [ ] Documentation maintains coherent structure (not patched-up)
@@ -321,11 +355,18 @@ uv sync --all-extras
 # Development cycle
 uv run ruff format .           # Format
 uv run ruff check .            # Lint
-uv run pytest tests/ -v        # Test
-uv run keyring-to-kdbx --help  # Manual test
+uv run pytest tests/ -v        # Automated tests
+uv run keyring-to-kdbx --help  # Quick manual smoke test
 
 # Before commit
 uv run ruff check . && uv run pytest tests/
+
+# Manual testing (for significant changes)
+# See "Manual Testing" section below for comprehensive test scenarios
+# Especially important for:
+# - CLI changes
+# - KeePassXC integration changes
+# - Keyring backend modifications
 ```
 
 ### Security Considerations
@@ -381,6 +422,294 @@ Tests MUST verify actual behavior, not just that code was called. Avoid "auto-re
 - `test_group_strategy_domain` - Verifies domain extraction (checks "example.com" extracted)
 - `test_get_credential_returns_none_not_exception` - Verifies error handling approach
 - `test_test_backend_verifies_round_trip` - Verifies all three operations occur
+
+### Manual Testing
+
+**Critical: Data Safety First**
+
+Manual testing involves real system keyrings and actual KDBX files. If you're using KeePassXC with Secret Service integration or have other systems relying on your keyring, follow these safety precautions to prevent data loss.
+
+#### Pre-Testing Safety Checklist
+
+Before any manual testing:
+
+1. **Backup your existing KeePassXC database**:
+   ```bash
+   cp ~/.config/KeePassXC/passwords.kdbx ~/.config/KeePassXC/passwords.kdbx.backup-$(date +%Y%m%d)
+   ```
+
+2. **Disable KeePassXC Secret Service integration** (if active):
+   - Open KeePassXC → Tools → Settings → Secret Service Integration
+   - Uncheck "Enable KeePassXC Freedesktop.org Secret Service integration"
+   - Click OK
+   - **Important**: This prevents applications from accessing KeePassXC during testing
+
+3. **Close KeePassXC completely**:
+   - File → Quit (or Ctrl+Q)
+   - Verify it's not running in system tray
+   - Check process list: `ps aux | grep keepassxc` (should show nothing)
+
+4. **Note your keyring state**:
+   ```bash
+   # On Linux with GNOME Keyring
+   secret-tool search --all | wc -l  # Count entries
+   
+   # Or open Seahorse to see current state
+   seahorse &
+   ```
+
+5. **Create a test directory**:
+   ```bash
+   mkdir -p ~/keyring-to-kdbx-testing
+   cd ~/keyring-to-kdbx-testing
+   ```
+
+#### Manual Test Scenarios
+
+**Scenario 1: First-Time Export (New KDBX)**
+
+Tests basic export functionality with a new database.
+
+```bash
+# 1. Test keyring access
+uv run keyring-to-kdbx export --test-keyring
+
+# Expected output:
+# - Keyring backend detected (e.g., "SecretService Keyring")
+# - Number of credentials found (or message about enumeration support)
+# - Sample entries listed (passwords hidden)
+
+# 2. Export to new file
+uv run keyring-to-kdbx export -o test-export.kdbx --group-by service
+
+# Expected behavior:
+# - Prompt for master password (twice)
+# - Progress messages
+# - Summary: "Total: X, Added: X, Skipped: 0, Errors: 0"
+# - File created with 600 permissions (Linux/macOS)
+
+# 3. Verify the KDBX file
+ls -lh test-export.kdbx  # Should exist, ~few KB minimum
+file test-export.kdbx    # Should show "Keepass password database"
+
+# 4. Open in KeePassXC (DO NOT enable Secret Service yet)
+keepassxc test-export.kdbx
+
+# Verify:
+# - Database opens with your master password
+# - Entries are organized by service (groups visible)
+# - Usernames and passwords are correct
+# - Custom attributes preserved (right-click entry → Properties → Advanced)
+# - Look for attributes like "service", "application", "xdg:schema"
+```
+
+**Scenario 2: Update Existing KDBX (Conflict Resolution)**
+
+Tests adding entries to an existing database with conflict handling.
+
+```bash
+# 1. Create initial export
+uv run keyring-to-kdbx export -o update-test.kdbx --group-by flat
+
+# 2. Open in KeePassXC and modify an entry
+keepassxc update-test.kdbx
+# Change a password, add a note, then save and close
+
+# 3. Test skip mode (default)
+uv run keyring-to-kdbx export -o update-test.kdbx --update --on-conflict skip
+
+# Expected:
+# - Prompt for existing database password
+# - Summary shows skipped entries (existing ones)
+# - Modified entry in KeePassXC remains unchanged
+
+# 4. Create backup, then test overwrite mode
+cp update-test.kdbx update-test.kdbx.manual-backup
+uv run keyring-to-kdbx export -o update-test.kdbx --update --on-conflict overwrite --backup
+
+# Expected:
+# - Creates update-test.kdbx.backup automatically
+# - Overwrites existing entries with keyring versions
+# - Manual modifications lost (expected behavior)
+
+# 5. Test rename mode
+uv run keyring-to-kdbx export -o update-test.kdbx --update --on-conflict rename
+
+# Expected:
+# - Creates entries with "_1", "_2" suffixes for conflicts
+# - Both original and new entries present
+```
+
+**Scenario 3: Group Organization Strategies**
+
+Tests different entry organization methods.
+
+```bash
+# 1. Flat organization (no groups)
+uv run keyring-to-kdbx export -o test-flat.kdbx --group-by flat
+keepassxc test-flat.kdbx
+# Verify: All entries at root level, no groups
+
+# 2. Service organization (default)
+uv run keyring-to-kdbx export -o test-service.kdbx --group-by service
+keepassxc test-service.kdbx
+# Verify: Groups named after service values (e.g., "github.com", "gitlab.com")
+
+# 3. Domain organization
+uv run keyring-to-kdbx export -o test-domain.kdbx --group-by domain
+keepassxc test-domain.kdbx
+# Verify: Groups by domain (e.g., "example.com" contains www.example.com, api.example.com)
+```
+
+**Scenario 4: KeePassXC Secret Service Integration**
+
+Tests full integration workflow - the primary use case.
+
+**⚠️ Critical: Only do this with test data or after backups**
+
+```bash
+# 1. Export keyring to a dedicated KDBX for Secret Service
+uv run keyring-to-kdbx export -o ~/keepassxc-secretservice.kdbx --group-by service
+
+# 2. Open in KeePassXC
+keepassxc ~/keepassxc-secretservice.kdbx
+
+# 3. Enable Secret Service integration
+# - Tools → Settings → Secret Service Integration
+# - Check "Enable KeePassXC Freedesktop.org Secret Service integration"
+# - Check "Expose entries under this group" → Select root or specific group
+# - Click OK
+
+# 4. Test with a Secret Service client
+# Install a test credential (won't conflict with export)
+secret-tool store --label="Test KeePassXC Integration" service test-service username testuser
+# When prompted, enter a test password
+
+# 5. Retrieve via Secret Service
+secret-tool lookup service test-service username testuser
+# Expected: Returns the password you just stored
+
+# 6. Test lookup of exported credential
+# Pick a service/username from your export
+secret-tool lookup service "github.com" username "your-github-user"
+# Expected: Returns the password from your exported KDBX
+
+# 7. Verify in KeePassXC
+# Open the database, find the entry
+# Right-click → Properties → Advanced
+# Verify custom properties: service, username, application, xdg:schema, etc.
+
+# 8. Test application integration
+# Open an application that uses libsecret (e.g., Git credential helper)
+# It should find credentials from KeePassXC database
+
+# 9. Monitor Secret Service activity (optional)
+dbus-monitor --session "destination=org.freedesktop.secrets"
+# Run in another terminal while testing to see Secret Service calls
+```
+
+**Scenario 5: Error Handling and Edge Cases**
+
+Tests error conditions and recovery.
+
+```bash
+# 1. Test with no keyring access (simulate locked keyring)
+# On Linux, lock your keyring in Seahorse, then:
+uv run keyring-to-kdbx export --test-keyring
+# Expected: Error message about keyring access
+
+# 2. Test with wrong password on update
+echo "test" > existing.kdbx  # Create invalid file
+uv run keyring-to-kdbx export -o existing.kdbx --update
+# Expected: Error about invalid KDBX or password
+
+# 3. Test with no write permissions
+uv run keyring-to-kdbx export -o /root/no-permission.kdbx
+# Expected: Permission denied error
+
+# 4. Test with very weak password
+uv run keyring-to-kdbx export -o weak-pw.kdbx
+# Enter "123" as password
+# Expected: Warning about weak password, but still works
+
+# 5. Test verbose logging
+uv run keyring-to-kdbx export -o test.kdbx -v
+# Expected: Detailed progress messages, entry processing logs
+```
+
+#### Post-Testing Restoration
+
+After testing, restore your normal environment:
+
+1. **Remove test files**:
+   ```bash
+   cd ~/keyring-to-kdbx-testing
+   rm -f *.kdbx *.backup
+   cd ~
+   rm -rf ~/keyring-to-kdbx-testing
+   ```
+
+2. **Re-enable KeePassXC Secret Service** (if you use it):
+   - Open KeePassXC
+   - Load your production database
+   - Tools → Settings → Secret Service Integration
+   - Enable and configure as before
+   - Click OK
+
+3. **Verify your production setup**:
+   ```bash
+   # Test that applications can access credentials
+   secret-tool lookup service "your-service" username "your-username"
+   ```
+
+4. **Restore from backup if needed**:
+   ```bash
+   # Only if something went wrong
+   cp ~/.config/KeePassXC/passwords.kdbx.backup-YYYYMMDD ~/.config/KeePassXC/passwords.kdbx
+   ```
+
+#### Manual Testing Checklist
+
+Before declaring manual testing complete:
+
+- [ ] Basic export to new KDBX successful
+- [ ] KDBX file opens in KeePassXC with correct password
+- [ ] Entries contain expected usernames and passwords
+- [ ] Custom attributes preserved (service, application, etc.)
+- [ ] Update mode adds new entries without duplicating
+- [ ] Conflict resolution strategies work (skip, overwrite, rename)
+- [ ] Backup creation works when specified
+- [ ] All group strategies produce correct organization (flat, service, domain)
+- [ ] KeePassXC Secret Service integration can retrieve exported credentials
+- [ ] Applications using libsecret can access credentials via KeePassXC
+- [ ] Error handling works (wrong password, no permissions, etc.)
+- [ ] File permissions set correctly (600 on Unix)
+- [ ] No data loss in production KeePassXC database
+- [ ] Production Secret Service integration restored and working
+
+#### Troubleshooting Manual Tests
+
+**KeePassXC won't expose entries via Secret Service**:
+- Check that "Expose entries under this group" is set
+- Verify entries have required attributes (service, username)
+- Try exposing the root group instead of specific groups
+- Restart KeePassXC after changing settings
+
+**secret-tool can't find credentials**:
+- Verify KeePassXC database is unlocked
+- Check Secret Service integration is enabled in KeePassXC
+- Ensure search attributes match entry properties exactly
+- Use `dbus-monitor` to see if requests reach KeePassXC
+
+**Entries missing attributes**:
+- Re-export with verbose logging: `-v`
+- Check that keyring backend provides attributes (use `--test-keyring`)
+- Some backends (macOS, Windows) may have limited attribute support
+
+**Applications can't access credentials**:
+- Verify application uses libsecret (not KWallet or other)
+- Check application's credential search attributes
+- May need to restart application after enabling Secret Service
 
 ### Error Handling
 

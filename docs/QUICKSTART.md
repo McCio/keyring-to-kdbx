@@ -35,6 +35,63 @@ uv sync
 
 That's it! The tool is ready to use.
 
+## Safe Testing (Read This First!)
+
+**⚠️ Important for KeePassXC Users**: If you're using KeePassXC with Secret Service integration or have applications that depend on your system keyring, follow these precautions to avoid data loss during testing.
+
+### Before Your First Export
+
+1. **Create a test directory** for safe experimentation:
+   ```bash
+   mkdir -p ~/keyring-test
+   cd ~/keyring-test
+   ```
+
+2. **If you use KeePassXC with Secret Service** (Linux):
+   - **Backup your existing KeePassXC database**:
+     ```bash
+     cp ~/.config/KeePassXC/passwords.kdbx ~/.config/KeePassXC/passwords.kdbx.backup
+     ```
+   - **Temporarily disable Secret Service integration**:
+     - Open KeePassXC → Tools → Settings → Secret Service Integration
+     - Uncheck "Enable KeePassXC Freedesktop.org Secret Service integration"
+     - Click OK
+   - **Close KeePassXC completely** (including system tray)
+
+3. **Test with a separate file first**:
+   ```bash
+   # Export to a test file (not your production database)
+   uv run keyring-to-kdbx export -o test-export.kdbx
+   ```
+
+4. **Verify the export** by opening it in KeePassXC:
+   ```bash
+   keepassxc test-export.kdbx
+   ```
+   - Check that entries are present and correct
+   - Verify custom attributes (right-click entry → Properties → Advanced)
+   - Look for attributes like "service", "application", etc.
+
+5. **Only after successful testing**, consider integrating with your production setup.
+
+### Restoring Your Environment
+
+After testing, restore your normal setup:
+
+1. **Re-enable KeePassXC Secret Service** (if you disabled it):
+   - Open KeePassXC with your production database
+   - Tools → Settings → Secret Service Integration
+   - Re-enable integration and configure as before
+
+2. **Clean up test files**:
+   ```bash
+   rm -rf ~/keyring-test
+   ```
+
+3. **Verify everything works**:
+   - Test that your applications can still access credentials
+   - If issues occur, restore from backup: `cp ~/.config/KeePassXC/passwords.kdbx.backup ~/.config/KeePassXC/passwords.kdbx`
+
 ## First Steps
 
 ### Step 1: Test Your Keyring
@@ -318,6 +375,58 @@ uv run keyring-to-kdbx export -o file-new.kdbx
 **Impact:** Short passwords are less secure but still work.
 
 **Recommendation:** Use a strong master password (12+ characters, mixed case, numbers, symbols).
+
+## KeePassXC Secret Service Integration
+
+**Primary Use Case**: Export keyring credentials for use with KeePassXC's Secret Service integration on Linux.
+
+### What This Enables
+
+When you export credentials with this tool and enable KeePassXC's Secret Service integration:
+- Applications using libsecret can access credentials from KeePassXC
+- Your credentials become portable across systems
+- You maintain compatibility with existing applications
+- All original keyring attributes are preserved for seamless integration
+
+### Integration Workflow
+
+1. **Export your keyring** to a dedicated KDBX file:
+   ```bash
+   uv run keyring-to-kdbx export -o ~/keepassxc-secrets.kdbx --group-by service
+   ```
+
+2. **Open the KDBX in KeePassXC**:
+   ```bash
+   keepassxc ~/keepassxc-secrets.kdbx
+   ```
+
+3. **Enable Secret Service integration** in KeePassXC:
+   - Tools → Settings → Secret Service Integration
+   - Check "Enable KeePassXC Freedesktop.org Secret Service integration"
+   - Select which groups to expose (or expose root for all entries)
+   - Click OK
+
+4. **Test the integration**:
+   ```bash
+   # Lookup a credential (adjust service/username to match your entries)
+   secret-tool lookup service "github.com" username "your-username"
+   ```
+
+5. **Applications will now find credentials** from your KeePassXC database:
+   - Git credential helpers
+   - GNOME applications using libsecret
+   - Any application that uses the freedesktop.org Secret Service API
+
+### Attribute Preservation
+
+The tool automatically preserves all original keyring attributes as custom properties in KDBX entries:
+- `service` - Service identifier
+- `username` - Username/account
+- `application` - Application that stored the credential
+- `xdg:schema` - Schema identifier for Secret Service
+- And any other custom attributes from your keyring
+
+These attributes ensure KeePassXC can match Secret Service queries from applications, maintaining seamless compatibility.
 
 ## Security Best Practices
 
