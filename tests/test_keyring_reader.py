@@ -7,6 +7,14 @@ from keyring.backends.fail import Keyring as FailKeyring
 
 from keyring_to_kdbx.keyring_reader import KeyringEntry, KeyringReader
 
+# Check if secretstorage is available (Linux only)
+try:
+    import secretstorage  # noqa: F401
+
+    HAS_SECRETSTORAGE = True
+except ImportError:
+    HAS_SECRETSTORAGE = False
+
 
 class TestKeyringEntry:
     """Tests for KeyringEntry dataclass."""
@@ -36,7 +44,9 @@ class TestKeyringEntry:
         assert repr_str.startswith("KeyringEntry(")
         assert repr_str.endswith(")")
         # Verify quotes around string values
-        assert "service='test.com'" in repr_str or 'service="test.com"' in repr_str
+        assert (
+            "service='test.com'" in repr_str or 'service="test.com"' in repr_str
+        )
         assert "username='user'" in repr_str or 'username="user"' in repr_str
         assert "password='***'" in repr_str or 'password="***"' in repr_str
 
@@ -85,7 +95,9 @@ class TestKeyringReader:
 
     @patch("keyring_to_kdbx.keyring_reader.keyring.get_keyring")
     @patch("keyring_to_kdbx.keyring_reader.keyring.get_password")
-    def test_get_credential_returns_none_not_exception(self, mock_get_password, mock_get_keyring):
+    def test_get_credential_returns_none_not_exception(
+        self, mock_get_password, mock_get_keyring
+    ):
         """Test that missing credentials return None, not raise exceptions."""
         mock_backend = Mock()
         mock_backend.__class__.__name__ = "SecretServiceKeyring"
@@ -99,7 +111,9 @@ class TestKeyringReader:
 
     @patch("keyring_to_kdbx.keyring_reader.keyring.get_keyring")
     @patch("keyring_to_kdbx.keyring_reader.keyring.get_password")
-    def test_get_credential_handles_keyring_errors(self, mock_get_password, mock_get_keyring):
+    def test_get_credential_handles_keyring_errors(
+        self, mock_get_password, mock_get_keyring
+    ):
         """Test that keyring errors are handled gracefully."""
         mock_backend = Mock()
         mock_backend.__class__.__name__ = "SecretServiceKeyring"
@@ -131,7 +145,9 @@ class TestKeyringReader:
         mock_backend.get_all_credentials.return_value = [mock_cred1, mock_cred2]
         mock_get_keyring.return_value = mock_backend
 
-        with patch("keyring_to_kdbx.keyring_reader.keyring.get_password") as mock_get_password:
+        with patch(
+            "keyring_to_kdbx.keyring_reader.keyring.get_password"
+        ) as mock_get_password:
             mock_get_password.side_effect = ["password1", "password2"]
 
             reader = KeyringReader()
@@ -152,6 +168,9 @@ class TestKeyringReader:
             assert entries[1].username == "user2"
             assert entries[1].password == "password2"
 
+    @pytest.mark.skipif(
+        not HAS_SECRETSTORAGE, reason="secretstorage not available (Linux only)"
+    )
     @patch("keyring_to_kdbx.keyring_reader.secretstorage")
     @patch("keyring_to_kdbx.keyring_reader.keyring.get_keyring")
     def test_get_all_credentials_with_get_preferred_collection(
@@ -244,7 +263,9 @@ class TestKeyringReader:
 
         mock_get_keyring.return_value = mock_backend
 
-        with patch("keyring_to_kdbx.keyring_reader.keyring.get_password") as mock_get_password:
+        with patch(
+            "keyring_to_kdbx.keyring_reader.keyring.get_password"
+        ) as mock_get_password:
             mock_get_password.side_effect = ["password1", "password2"]
 
             reader = KeyringReader()
@@ -279,7 +300,9 @@ class TestKeyringReader:
         assert isinstance(entries, list)
 
     @patch("keyring_to_kdbx.keyring_reader.keyring.get_keyring")
-    def test_get_all_credentials_filters_empty_passwords(self, mock_get_keyring):
+    def test_get_all_credentials_filters_empty_passwords(
+        self, mock_get_keyring
+    ):
         """Test that credentials with None passwords are filtered out."""
         mock_backend = Mock()
         mock_backend.__class__.__name__ = "SecretServiceKeyring"
@@ -297,7 +320,9 @@ class TestKeyringReader:
         mock_backend.get_all_credentials.return_value = [mock_cred1, mock_cred2]
         mock_get_keyring.return_value = mock_backend
 
-        with patch("keyring_to_kdbx.keyring_reader.keyring.get_password") as mock_get_password:
+        with patch(
+            "keyring_to_kdbx.keyring_reader.keyring.get_password"
+        ) as mock_get_password:
             # First has password, second doesn't
             mock_get_password.side_effect = ["password1", None]
 
@@ -311,7 +336,9 @@ class TestKeyringReader:
 
     @patch("keyring_to_kdbx.keyring_reader.keyring")
     @patch("keyring_to_kdbx.keyring_reader.keyring.get_keyring")
-    def test_test_backend_verifies_round_trip(self, mock_get_keyring, mock_keyring):
+    def test_test_backend_verifies_round_trip(
+        self, mock_get_keyring, mock_keyring
+    ):
         """Test that backend test verifies full set/get/delete cycle."""
         mock_backend = Mock()
         mock_backend.__class__.__name__ = "SecretServiceKeyring"
@@ -338,7 +365,9 @@ class TestKeyringReader:
 
     @patch("keyring_to_kdbx.keyring_reader.keyring")
     @patch("keyring_to_kdbx.keyring_reader.keyring.get_keyring")
-    def test_test_backend_detects_password_mismatch(self, mock_get_keyring, mock_keyring):
+    def test_test_backend_detects_password_mismatch(
+        self, mock_get_keyring, mock_keyring
+    ):
         """Test that backend test fails if retrieved password doesn't match."""
         mock_backend = Mock()
         mock_backend.__class__.__name__ = "SecretServiceKeyring"
@@ -357,7 +386,9 @@ class TestKeyringReader:
 
     @patch("keyring_to_kdbx.keyring_reader.keyring")
     @patch("keyring_to_kdbx.keyring_reader.keyring.get_keyring")
-    def test_test_backend_handles_exceptions(self, mock_get_keyring, mock_keyring):
+    def test_test_backend_handles_exceptions(
+        self, mock_get_keyring, mock_keyring
+    ):
         """Test that backend test returns False on exceptions, not crash."""
         mock_backend = Mock()
         mock_backend.__class__.__name__ = "SecretServiceKeyring"
@@ -372,9 +403,14 @@ class TestKeyringReader:
         # Should return False, not raise exception
         assert result is False
 
+    @pytest.mark.skipif(
+        not HAS_SECRETSTORAGE, reason="secretstorage not available (Linux only)"
+    )
     @patch("keyring_to_kdbx.keyring_reader.secretstorage")
     @patch("keyring_to_kdbx.keyring_reader.keyring.get_keyring")
-    def test_unsupported_backend_warning(self, mock_get_keyring, mock_secretstorage):
+    def test_unsupported_backend_warning(
+        self, mock_get_keyring, mock_secretstorage
+    ):
         """Test warning is logged for unsupported backends."""
         mock_backend = Mock()
         mock_backend.__class__.__name__ = "UnsupportedKeyring"
