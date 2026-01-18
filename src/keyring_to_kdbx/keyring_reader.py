@@ -14,11 +14,12 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class KeyringEntry:
-    """Represents a single keyring entry with service, username, and password."""
+    """Represents a single keyring entry with service, username, password, and attributes."""
 
     service: str
     username: str
     password: str
+    attributes: dict[str, str] | None = None
 
     def __repr__(self) -> str:
         """Return a string representation without exposing the password."""
@@ -81,24 +82,38 @@ class KeyringReader:
                 credentials = self.backend.get_all_credentials()
                 for cred in credentials:
                     if hasattr(cred, "service") and hasattr(cred, "username"):
-                        password = keyring.get_password(cred.service, cred.username)
+                        password = keyring.get_password(
+                            cred.service, cred.username
+                        )
                         if password:
+                            # Extract attributes if available
+                            attributes = {}
+                            if hasattr(cred, "attributes"):
+                                attributes = dict(cred.attributes)
                             yield KeyringEntry(
                                 service=cred.service,
                                 username=cred.username,
                                 password=password,
+                                attributes=attributes if attributes else None,
                             )
             except Exception as e:
                 logger.warning(f"get_all_credentials failed: {e}")
 
         # Try to use the collection property (SecretService backend)
-        elif hasattr(self.backend, "collection") and self.backend.collection is not None:
+        elif (
+            hasattr(self.backend, "collection")
+            and self.backend.collection is not None
+        ):
             logger.debug("Using collection property")
             try:
                 for item in self.backend.collection.get_all_items():
                     attributes = item.get_attributes()
-                    service = attributes.get("service", attributes.get("application", "unknown"))
-                    username = attributes.get("username", attributes.get("user", ""))
+                    service = attributes.get(
+                        "service", attributes.get("application", "unknown")
+                    )
+                    username = attributes.get(
+                        "username", attributes.get("user", "")
+                    )
 
                     if service and username:
                         password = keyring.get_password(service, username)
@@ -107,6 +122,9 @@ class KeyringReader:
                                 service=service,
                                 username=username,
                                 password=password,
+                                attributes=dict(attributes)
+                                if attributes
+                                else None,
                             )
             except Exception as e:
                 logger.warning(f"Collection iteration failed: {e}")
@@ -135,7 +153,9 @@ class KeyringReader:
                 "You may need to manually specify which credentials to export."
             )
 
-    def get_credential(self, service: str, username: str) -> KeyringEntry | None:
+    def get_credential(
+        self, service: str, username: str
+    ) -> KeyringEntry | None:
         """
         Retrieve a specific credential from the keyring.
 
@@ -150,11 +170,18 @@ class KeyringReader:
             password = keyring.get_password(service, username)
             if password:
                 logger.debug(f"Retrieved credential for {service}/{username}")
-                return KeyringEntry(service=service, username=username, password=password)
+                return KeyringEntry(
+                    service=service,
+                    username=username,
+                    password=password,
+                    attributes=None,
+                )
             logger.debug(f"No password found for {service}/{username}")
             return None
         except Exception as e:
-            logger.error(f"Failed to get credential for {service}/{username}: {e}")
+            logger.error(
+                f"Failed to get credential for {service}/{username}: {e}"
+            )
             return None
 
     def test_backend(self) -> bool:

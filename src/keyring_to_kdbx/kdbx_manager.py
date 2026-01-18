@@ -3,7 +3,7 @@
 import logging
 from pathlib import Path
 
-from pykeepass import PyKeePass
+from pykeepass import PyKeePass, create_database
 from pykeepass.entry import Entry
 from pykeepass.exceptions import CredentialsError
 from pykeepass.group import Group
@@ -14,7 +14,9 @@ logger = logging.getLogger(__name__)
 class KdbxManager:
     """Manages KeePass database operations."""
 
-    def __init__(self, db_path: Path, password: str, create: bool = False) -> None:
+    def __init__(
+        self, db_path: Path, password: str, create: bool = False
+    ) -> None:
         """
         Initialise the KDBX manager.
 
@@ -45,14 +47,15 @@ class KdbxManager:
     def _create_database(self) -> None:
         """Create a new KeePass database."""
         try:
+            # Ensure parent directory exists
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+
             logger.info(f"Creating new database at {self.db_path}")
-            self.kp = PyKeePass(
+            self.kp = create_database(
                 str(self.db_path),
                 password=self.password,
                 keyfile=None,
             )
-            # Save immediately to create the file
-            self.kp.save()
             logger.info("Database created successfully")
         except Exception as e:
             msg = f"Failed to create database: {e}"
@@ -82,7 +85,9 @@ class KdbxManager:
             logger.error(msg)
             raise RuntimeError(msg) from e
 
-    def get_or_create_group(self, group_name: str, parent: Group | None = None) -> Group:
+    def get_or_create_group(
+        self, group_name: str, parent: Group | None = None
+    ) -> Group:
         """
         Get an existing group or create a new one.
 
@@ -121,6 +126,7 @@ class KdbxManager:
         group_name: str | None = None,
         notes: str | None = None,
         url: str | None = None,
+        attributes: dict[str, str] | None = None,
     ) -> Entry:
         """
         Add a new entry to the database.
@@ -132,6 +138,7 @@ class KdbxManager:
             group_name: Group to add entry to. If None, uses root group.
             notes: Optional notes for the entry.
             url: Optional URL for the entry.
+            attributes: Optional dict of custom attributes from keyring to preserve.
 
         Returns:
             The created entry.
@@ -144,11 +151,15 @@ class KdbxManager:
             raise RuntimeError(msg)
 
         # Get or create the group
-        group = self.get_or_create_group(group_name) if group_name else self.kp.root_group
+        group = (
+            self.get_or_create_group(group_name)
+            if group_name
+            else self.kp.root_group
+        )
 
         logger.debug(f"Adding entry: {service}/{username}")
 
-        return self.kp.add_entry(
+        entry = self.kp.add_entry(
             destination_group=group,
             title=service,
             username=username,
@@ -156,6 +167,17 @@ class KdbxManager:
             notes=notes or "",
             url=url or "",
         )
+
+        # Preserve original keyring attributes as custom properties
+        # This maintains Secret Service compatibility for KeePassXC
+        if attributes:
+            for key, value in attributes.items():
+                entry.set_custom_property(key, value)
+            logger.debug(
+                f"Preserved {len(attributes)} original attributes from keyring"
+            )
+
+        return entry
 
     def find_entry(
         self,
@@ -187,7 +209,9 @@ class KdbxManager:
             group = self.kp.find_groups(name=group_name, first=True)
 
         # Search for entry
-        entries = self.kp.find_entries(title=service, username=username, first=False)
+        entries = self.kp.find_entries(
+            title=service, username=username, first=False
+        )
 
         if not entries:
             return None
