@@ -46,5 +46,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Modern Python tooling: uv, ruff, pytest
 - Type hints throughout codebase
 - Public domain dedication under CC0 1.0 Universal licence
+- Python 3.9-3.13 support with comprehensive testing across all versions
+- GitHub Actions CI/CD workflows:
+  - Automated linting and testing (Python 3.9-3.13)
+  - Automated PyPI releases on version tags
+  - Code coverage tracking with Codecov
+  - Weekly dependency security audits
+  - Dependabot for automated dependency updates
 
 [Unreleased]: https://github.com/McCio/keyring-to-kdbx/commits/HEAD

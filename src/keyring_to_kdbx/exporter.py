@@ -109,18 +109,14 @@ class KeyringExporter:
 
             # Initialise KDBX manager
             create = not self.output_path.exists()
-            self.kdbx_manager = KdbxManager(
-                self.output_path, self.password, create=create
-            )
+            self.kdbx_manager = KdbxManager(self.output_path, self.password, create=create)
 
             # Export each entry
             for entry in entries:
                 try:
                     self._export_entry(entry, result)
                 except Exception as e:
-                    logger.error(
-                        f"Failed to export {entry.service}/{entry.username}: {e}"
-                    )
+                    logger.error(f"Failed to export {entry.service}/{entry.username}: {e}")
                     result.errors += 1
 
             # Save the database
@@ -153,9 +149,7 @@ class KeyringExporter:
         group_name = self._get_group_name(entry.service)
 
         # Check if entry already exists
-        existing = self.kdbx_manager.find_entry(
-            entry.service, entry.username, group_name
-        )
+        existing = self.kdbx_manager.find_entry(entry.service, entry.username, group_name)
 
         if existing:
             self._handle_conflict(entry, existing, group_name, result)
@@ -194,17 +188,13 @@ class KeyringExporter:
             raise RuntimeError(msg)
 
         if self.conflict_resolution == ConflictResolution.SKIP:
-            logger.debug(
-                f"Skipping existing entry: {entry.service}/{entry.username}"
-            )
+            logger.debug(f"Skipping existing entry: {entry.service}/{entry.username}")
             result.skipped += 1
 
         elif self.conflict_resolution == ConflictResolution.OVERWRITE:
             logger.debug(f"Overwriting entry: {entry.service}/{entry.username}")
             notes = "Exported from system keyring (updated)"
-            self.kdbx_manager.update_entry(
-                existing, password=entry.password, notes=notes
-            )
+            self.kdbx_manager.update_entry(existing, password=entry.password, notes=notes)
             result.updated += 1
 
         elif self.conflict_resolution == ConflictResolution.RENAME:
@@ -266,16 +256,12 @@ class KeyringExporter:
         if not self.output_path.exists():
             return
 
-        backup_path = self.output_path.with_suffix(
-            self.output_path.suffix + ".backup"
-        )
+        backup_path = self.output_path.with_suffix(self.output_path.suffix + ".backup")
 
         # If backup already exists, add number
         counter = 1
         while backup_path.exists():
-            backup_path = self.output_path.with_suffix(
-                f"{self.output_path.suffix}.backup{counter}"
-            )
+            backup_path = self.output_path.with_suffix(f"{self.output_path.suffix}.backup{counter}")
             counter += 1
 
         logger.info(f"Creating backup: {backup_path}")

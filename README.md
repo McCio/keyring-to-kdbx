@@ -3,7 +3,7 @@
 Export system keyring credentials to KeePass database (KDBX) format.
 
 [![Licence: CC0](https://img.shields.io/badge/License-CC0_1.0-lightgrey.svg)](http://creativecommons.org/publicdomain/zero/1.0/)
-[![Python: 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Python: 3.9-3.13](https://img.shields.io/badge/python-3.9--3.13-blue.svg)](https://www.python.org/downloads/)
 
 
 
@@ -50,6 +50,8 @@ Reads credentials from your system keyring (GNOME Keyring, macOS Keychain, Windo
 ## Development
 
 ### Setup
+
+**Requirements:** Python 3.9-3.13
 
 This project uses [uv](https://github.com/astral-sh/uv) for fast, reliable dependency management:
 

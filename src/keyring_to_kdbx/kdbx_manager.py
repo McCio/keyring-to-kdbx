@@ -29,17 +29,13 @@ def _sanitize_entry_field(value: str) -> str:
 
     # Remove double quotes that cause XPath "Invalid predicate" errors
     # Single quotes are OK, but double quotes break the XPath query
-    sanitized = value.replace('"', "")
-
-    return sanitized
+    return value.replace('"', "")
 
 
 class KdbxManager:
     """Manages KeePass database operations."""
 
-    def __init__(
-        self, db_path: Path, password: str, create: bool = False
-    ) -> None:
+    def __init__(self, db_path: Path, password: str, create: bool = False) -> None:
         """
         Initialise the KDBX manager.
 
@@ -108,9 +104,7 @@ class KdbxManager:
             logger.error(msg)
             raise RuntimeError(msg) from e
 
-    def get_or_create_group(
-        self, group_name: str, parent: Group | None = None
-    ) -> Group:
+    def get_or_create_group(self, group_name: str, parent: Group | None = None) -> Group:
         """
         Get an existing group or create a new one.
 
@@ -174,11 +168,7 @@ class KdbxManager:
             raise RuntimeError(msg)
 
         # Get or create the group
-        group = (
-            self.get_or_create_group(group_name)
-            if group_name
-            else self.kp.root_group
-        )
+        group = self.get_or_create_group(group_name) if group_name else self.kp.root_group
 
         logger.debug(f"Adding entry: {service}/{username}")
 
@@ -199,9 +189,7 @@ class KdbxManager:
         if attributes:
             for key, value in attributes.items():
                 entry.set_custom_property(key, value)
-            logger.debug(
-                f"Preserved {len(attributes)} original attributes from keyring"
-            )
+            logger.debug(f"Preserved {len(attributes)} original attributes from keyring")
 
         return entry
 
@@ -238,9 +226,7 @@ class KdbxManager:
             group = self.kp.find_groups(name=group_name, first=True)
 
         # Search for entry using sanitized title
-        entries = self.kp.find_entries(
-            title=safe_service, username=username, first=False
-        )
+        entries = self.kp.find_entries(title=safe_service, username=username, first=False)
 
         if not entries:
             return None

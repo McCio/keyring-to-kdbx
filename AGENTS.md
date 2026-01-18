@@ -312,7 +312,7 @@ Before considering any change complete:
 
 ### Technology Stack
 
-- **Python**: 3.9+ (for modern type hints and features)
+- **Python**: 3.9-3.13 (tested across all versions)
 - **Package Manager**: uv (fast, modern, lockfile-based)
 - **Linting/Formatting**: ruff (replaces black, isort, flake8, mypy)
 - **Testing**: pytest with pytest-cov and pytest-mock
@@ -368,6 +368,23 @@ uv run ruff check . && uv run pytest tests/
 # - KeePassXC integration changes
 # - Keyring backend modifications
 ```
+
+### GitHub Workflows (CI/CD)
+
+Automated workflows handle testing, releases, and dependency management:
+
+- **CI** (`ci.yml`): Linting, testing (Python 3.9-3.13), CHANGELOG validation on every push/PR
+- **Release** (`release.yml`): Automated PyPI publishing on version tags (`v*.*.*`)
+- **Coverage** (`coverage.yml`): Code coverage tracking with Codecov integration
+- **Dependencies** (`dependencies.yml`): Weekly security audits and outdated package monitoring
+- **Dependabot**: Automated dependency update PRs (minor/patch versions only)
+
+**Key requirements**:
+- Commit messages follow Conventional Commits format
+- CHANGELOG updated under `[Unreleased]` for all changes
+- Version in `pyproject.toml` matches git tag for releases
+
+**See**: `.github/QUICK_REFERENCE.md` for commands and troubleshooting.
 
 ### Security Considerations
 
@@ -788,6 +805,7 @@ This project is:
 - **KeePassXC Secret Service Integration**: https://keepassxc.org/docs/KeePassXC_GettingStarted.html#_secret_service_integration
 - **Secret Service API**: https://specifications.freedesktop.org/secret-service/
 - **Conventional Commits**: https://www.conventionalcommits.org/
+- **GitHub Actions**: https://docs.github.com/en/actions
 
 ---
 

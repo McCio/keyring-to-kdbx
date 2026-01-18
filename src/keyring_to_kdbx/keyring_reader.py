@@ -70,7 +70,7 @@ class KeyringReader:
             logger.error(msg)
             raise RuntimeError(msg) from e
 
-    def _iterate_credentials(self) -> Iterator[KeyringEntry]:  # noqa: PLR0912
+    def _iterate_credentials(self) -> Iterator[KeyringEntry]:  # noqa: PLR0912, PLR0915
         """
         Iterate through credentials using backend-specific methods.
 
@@ -90,9 +90,7 @@ class KeyringReader:
                 credentials = self.backend.get_all_credentials()
                 for cred in credentials:
                     if hasattr(cred, "service") and hasattr(cred, "username"):
-                        password = keyring.get_password(
-                            cred.service, cred.username
-                        )
+                        password = keyring.get_password(cred.service, cred.username)
                         if password:
                             # Extract attributes if available
                             attributes = {}
@@ -108,27 +106,19 @@ class KeyringReader:
                 logger.warning(f"get_all_credentials failed: {e}")
 
         # Try to use secretstorage directly to get all collections (SecretService backend)
-        elif HAS_SECRETSTORAGE and hasattr(
-            self.backend, "get_preferred_collection"
-        ):
+        elif HAS_SECRETSTORAGE and hasattr(self.backend, "get_preferred_collection"):
             logger.debug("Using secretstorage to enumerate all collections")
             try:
                 connection = secretstorage.dbus_init()
-                collections = list(
-                    secretstorage.get_all_collections(connection)
-                )
+                collections = list(secretstorage.get_all_collections(connection))
                 logger.debug(f"Found {len(collections)} collections")
 
                 for collection in collections:
                     if collection.is_locked():
-                        logger.debug(
-                            f"Skipping locked collection: {collection.get_label()}"
-                        )
+                        logger.debug(f"Skipping locked collection: {collection.get_label()}")
                         continue
 
-                    logger.debug(
-                        f"Processing collection: {collection.get_label()}"
-                    )
+                    logger.debug(f"Processing collection: {collection.get_label()}")
                     for item in collection.get_all_items():
                         attributes = item.get_attributes()
 
@@ -155,40 +145,27 @@ class KeyringReader:
                         try:
                             secret_bytes = item.get_secret()
                             if secret_bytes:
-                                password = secret_bytes.decode(
-                                    "utf-8", errors="replace"
-                                )
+                                password = secret_bytes.decode("utf-8", errors="replace")
 
                                 yield KeyringEntry(
                                     service=service,
                                     username=username,
                                     password=password,
-                                    attributes=dict(attributes)
-                                    if attributes
-                                    else None,
+                                    attributes=dict(attributes) if attributes else None,
                                 )
                         except Exception as e:
-                            logger.debug(
-                                f"Failed to get secret for {service}: {e}"
-                            )
+                            logger.debug(f"Failed to get secret for {service}: {e}")
             except Exception as e:
                 logger.warning(f"secretstorage enumeration failed: {e}")
 
         # Try to use the collection property (SecretService backend)
-        elif (
-            hasattr(self.backend, "collection")
-            and self.backend.collection is not None
-        ):
+        elif hasattr(self.backend, "collection") and self.backend.collection is not None:
             logger.debug("Using collection property")
             try:
                 for item in self.backend.collection.get_all_items():
                     attributes = item.get_attributes()
-                    service = attributes.get(
-                        "service", attributes.get("application", "unknown")
-                    )
-                    username = attributes.get(
-                        "username", attributes.get("user", "")
-                    )
+                    service = attributes.get("service", attributes.get("application", "unknown"))
+                    username = attributes.get("username", attributes.get("user", ""))
 
                     if service and username:
                         password = keyring.get_password(service, username)
@@ -197,9 +174,7 @@ class KeyringReader:
                                 service=service,
                                 username=username,
                                 password=password,
-                                attributes=dict(attributes)
-                                if attributes
-                                else None,
+                                attributes=dict(attributes) if attributes else None,
                             )
             except Exception as e:
                 logger.warning(f"Collection iteration failed: {e}")
@@ -228,9 +203,7 @@ class KeyringReader:
                 "You may need to manually specify which credentials to export."
             )
 
-    def get_credential(
-        self, service: str, username: str
-    ) -> KeyringEntry | None:
+    def get_credential(self, service: str, username: str) -> KeyringEntry | None:
         """
         Retrieve a specific credential from the keyring.
 
@@ -254,9 +227,7 @@ class KeyringReader:
             logger.debug(f"No password found for {service}/{username}")
             return None
         except Exception as e:
-            logger.error(
-                f"Failed to get credential for {service}/{username}: {e}"
-            )
+            logger.error(f"Failed to get credential for {service}/{username}: {e}")
             return None
 
     def test_backend(self) -> bool:

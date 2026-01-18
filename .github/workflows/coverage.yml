@@ -1,0 +1,225 @@
+name: Coverage
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  coverage:
+    name: Generate Coverage Report
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Needed for coverage comparison
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run tests with coverage
+        run: |
+          uv run pytest tests/ -v \
+            --cov=src/keyring_to_kdbx \
+            --cov-report=xml \
+            --cov-report=html \
+            --cov-report=term-missing
+
+      - name: Generate coverage badge
+        if: github.ref == 'refs/heads/main'
+        run: |
+          COVERAGE=$(uv run coverage report --precision=0 | grep TOTAL | awk '{print $NF}' | sed 's/%//')
+          echo "COVERAGE=$COVERAGE" >> $GITHUB_ENV
+
+          COLOR="red"
+          if [ "$COVERAGE" -ge 80 ]; then
+            COLOR="brightgreen"
+          elif [ "$COVERAGE" -ge 60 ]; then
+            COLOR="yellow"
+          elif [ "$COVERAGE" -ge 40 ]; then
+            COLOR="orange"
+          fi
+
+          echo "COVERAGE_COLOR=$COLOR" >> $GITHUB_ENV
+          echo "Coverage: $COVERAGE% (color: $COLOR)"
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          flags: unittests
+          name: keyring-to-kdbx-coverage
+          fail_ci_if_error: false
+          verbose: true
+
+      - name: Upload HTML coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-html
+          path: htmlcov/
+          retention-days: 30
+
+      - name: Coverage comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const xml2js = require('xml2js');
+
+            // Read coverage XML
+            const coverageXml = fs.readFileSync('coverage.xml', 'utf8');
+            const parser = new xml2js.Parser();
+
+            parser.parseString(coverageXml, (err, result) => {
+              if (err) {
+                console.log('Error parsing coverage XML:', err);
+                return;
+              }
+
+              const coverage = result.coverage.$;
+              const lineRate = (parseFloat(coverage['line-rate']) * 100).toFixed(2);
+              const branchRate = (parseFloat(coverage['branch-rate']) * 100).toFixed(2);
+
+              let comment = '## Coverage Report\n\n';
+              comment += '| Metric | Coverage |\n';
+              comment += '|--------|----------|\n';
+              comment += `| Lines | ${lineRate}% |\n`;
+              comment += `| Branches | ${branchRate}% |\n`;
+              comment += '\n';
+              comment += 'View detailed HTML report in workflow artifacts.\n';
+
+              // Find existing coverage comment
+              github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+              }).then(({ data }) => {
+                const botComment = data.find(comment =>
+                  comment.user.type === 'Bot' &&
+                  comment.body.includes('Coverage Report')
+                );
+
+                if (botComment) {
+                  // Update existing comment
+                  github.rest.issues.updateComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    comment_id: botComment.id,
+                    body: comment
+                  });
+                } else {
+                  // Create new comment
+                  github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: context.issue.number,
+                    body: comment
+                  });
+                }
+              });
+            });
+
+  coverage-diff:
+    name: Coverage Comparison
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Get base branch coverage
+        run: |
+          git checkout ${{ github.base_ref }}
+          uv run pytest tests/ --cov=src/keyring_to_kdbx --cov-report=term > base_coverage.txt || true
+          BASE_COV=$(grep "^TOTAL" base_coverage.txt | awk '{print $NF}' | sed 's/%//' || echo "0")
+          echo "BASE_COVERAGE=$BASE_COV" >> $GITHUB_ENV
+          echo "Base coverage: $BASE_COV%"
+
+      - name: Get PR coverage
+        run: |
+          git checkout ${{ github.head_ref }}
+          uv run pytest tests/ --cov=src/keyring_to_kdbx --cov-report=term > pr_coverage.txt || true
+          PR_COV=$(grep "^TOTAL" pr_coverage.txt | awk '{print $NF}' | sed 's/%//' || echo "0")
+          echo "PR_COVERAGE=$PR_COV" >> $GITHUB_ENV
+          echo "PR coverage: $PR_COV%"
+
+      - name: Calculate coverage diff
+        id: diff
+        run: |
+          BASE=${{ env.BASE_COVERAGE }}
+          PR=${{ env.PR_COVERAGE }}
+          DIFF=$(echo "$PR - $BASE" | bc)
+          echo "COVERAGE_DIFF=$DIFF" >> $GITHUB_ENV
+
+          if (( $(echo "$DIFF < 0" | bc -l) )); then
+            echo "status=decreased" >> $GITHUB_OUTPUT
+            echo "emoji=📉" >> $GITHUB_OUTPUT
+          elif (( $(echo "$DIFF > 0" | bc -l) )); then
+            echo "status=increased" >> $GITHUB_OUTPUT
+            echo "emoji=📈" >> $GITHUB_OUTPUT
+          else
+            echo "status=unchanged" >> $GITHUB_OUTPUT
+            echo "emoji=➡️" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment coverage diff
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const diff = parseFloat('${{ env.COVERAGE_DIFF }}');
+            const emoji = '${{ steps.diff.outputs.emoji }}';
+            const status = '${{ steps.diff.outputs.status }}';
+
+            let comment = '## Coverage Comparison\n\n';
+            comment += `${emoji} Coverage ${status}\n\n`;
+            comment += '| | Coverage |\n';
+            comment += '|---------|----------|\n';
+            comment += `| Base (${{ github.base_ref }}) | ${{ env.BASE_COVERAGE }}% |\n`;
+            comment += `| PR | ${{ env.PR_COVERAGE }}% |\n`;
+            comment += `| Difference | ${diff > 0 ? '+' : ''}${diff.toFixed(2)}% |\n`;
+
+            if (diff < -5) {
+              comment += '\n⚠️ **Warning:** Coverage decreased by more than 5%\n';
+            } else if (diff > 5) {
+              comment += '\n✨ **Great!** Coverage increased by more than 5%\n';
+            }
+
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
+
+      - name: Fail if coverage decreased significantly
+        if: env.COVERAGE_DIFF < -10
+        run: |
+          echo "❌ Coverage decreased by more than 10%"
+          echo "This is likely unacceptable. Please add tests."
+          exit 1

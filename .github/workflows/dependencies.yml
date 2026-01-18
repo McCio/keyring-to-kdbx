@@ -1,0 +1,177 @@
+name: Dependency Management
+
+on:
+  schedule:
+    # Run weekly on Monday at 09:00 UTC
+    - cron: "0 9 * * 1"
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  check-dependencies:
+    name: Check for Outdated Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Check for outdated packages
+        id: outdated
+        run: |
+          echo "Checking for outdated dependencies..."
+          uv pip list --outdated > outdated.txt || true
+
+          if [ -s outdated.txt ]; then
+            echo "has_outdated=true" >> $GITHUB_OUTPUT
+            echo "Outdated packages found:"
+            cat outdated.txt
+          else
+            echo "has_outdated=false" >> $GITHUB_OUTPUT
+            echo "All dependencies are up to date!"
+          fi
+
+      - name: Upload outdated dependencies report
+        if: steps.outdated.outputs.has_outdated == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: outdated-dependencies
+          path: outdated.txt
+          retention-days: 7
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run pip-audit for security vulnerabilities
+        id: audit
+        run: |
+          uv pip install pip-audit
+          uv run pip-audit --format json > audit.json || true
+
+          if [ -s audit.json ] && [ "$(cat audit.json)" != "[]" ]; then
+            echo "vulnerabilities_found=true" >> $GITHUB_OUTPUT
+            echo "Security vulnerabilities found:"
+            uv run pip-audit
+          else
+            echo "vulnerabilities_found=false" >> $GITHUB_OUTPUT
+            echo "No security vulnerabilities found!"
+          fi
+
+      - name: Upload security audit report
+        if: steps.audit.outputs.vulnerabilities_found == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-audit
+          path: audit.json
+          retention-days: 30
+
+      - name: Create issue for vulnerabilities
+        if: steps.audit.outputs.vulnerabilities_found == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const audit = JSON.parse(fs.readFileSync('audit.json', 'utf8'));
+
+            let body = '## Security Vulnerabilities Detected\n\n';
+            body += 'The automated security audit has detected vulnerabilities in dependencies:\n\n';
+            body += '```json\n' + JSON.stringify(audit, null, 2) + '\n```\n\n';
+            body += 'Please review and update affected dependencies.\n';
+
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'security,dependencies',
+              state: 'open'
+            });
+
+            if (issues.data.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: 'Security vulnerabilities detected in dependencies',
+                body: body,
+                labels: ['security', 'dependencies', 'automated']
+              });
+            }
+
+  check-lock-freshness:
+    name: Check Lock File Freshness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Verify lock file is up to date
+        run: |
+          # Generate a fresh lock file
+          uv lock --no-install
+
+          # Check if lock file changed
+          if git diff --exit-code uv.lock; then
+            echo "✓ Lock file is up to date"
+          else
+            echo "⚠️ Lock file is out of sync with pyproject.toml"
+            echo "Run 'uv lock' locally and commit the changes"
+            exit 1
+          fi
+
+  summary:
+    name: Dependency Check Summary
+    runs-on: ubuntu-latest
+    needs: [check-dependencies, security-audit, check-lock-freshness]
+    if: always()
+    steps:
+      - name: Summary
+        run: |
+          echo "Dependency Management Summary"
+          echo "=============================="
+          echo ""
+          echo "Check Dependencies: ${{ needs.check-dependencies.result }}"
+          echo "Security Audit: ${{ needs.security-audit.result }}"
+          echo "Lock File Check: ${{ needs.check-lock-freshness.result }}"
+          echo ""
+
+          if [ "${{ needs.check-dependencies.result }}" != "success" ] || \
+             [ "${{ needs.security-audit.result }}" != "success" ] || \
+             [ "${{ needs.check-lock-freshness.result }}" != "success" ]; then
+            echo "⚠️ Some dependency checks failed or found issues"
+            echo "Review the job outputs and artifacts for details"
+          else
+            echo "✓ All dependency checks passed"
+          fi
