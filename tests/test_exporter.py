@@ -80,7 +80,9 @@ class TestKeyringExporterInit:
     """Tests for KeyringExporter initialization."""
 
     @patch("keyring_to_kdbx.exporter.KeyringReader")
-    def test_exporter_initialization(self, mock_reader_class, temp_output_path, test_password):
+    def test_exporter_initialization(
+        self, mock_reader_class, temp_output_path, test_password
+    ):
         """Test exporter initializes with correct parameters."""
         mock_reader = Mock()
         mock_reader_class.return_value = mock_reader
@@ -101,12 +103,16 @@ class TestKeyringExporterInit:
         assert exporter.keyring_reader == mock_reader
 
     @patch("keyring_to_kdbx.exporter.KeyringReader")
-    def test_exporter_default_parameters(self, mock_reader_class, temp_output_path, test_password):
+    def test_exporter_default_parameters(
+        self, mock_reader_class, temp_output_path, test_password
+    ):
         """Test exporter uses correct defaults."""
         mock_reader = Mock()
         mock_reader_class.return_value = mock_reader
 
-        exporter = KeyringExporter(output_path=temp_output_path, password=test_password)
+        exporter = KeyringExporter(
+            output_path=temp_output_path, password=test_password
+        )
 
         assert exporter.conflict_resolution == ConflictResolution.SKIP
         assert exporter.group_strategy == GroupStrategy.SERVICE
@@ -159,7 +165,9 @@ class TestKeyringExporterExport:
         exporter = KeyringExporter(temp_output_path, test_password)
         result = exporter.export()
 
-        mock_manager_class.assert_called_once_with(temp_output_path, test_password, create=True)
+        mock_manager_class.assert_called_once_with(
+            temp_output_path, test_password, create=True
+        )
         assert result.total == 3
         assert result.added == 3
         assert mock_manager.add_entry.call_count == 3
@@ -190,7 +198,9 @@ class TestKeyringExporterExport:
         exporter = KeyringExporter(temp_output_path, test_password)
         result = exporter.export()
 
-        mock_manager_class.assert_called_once_with(temp_output_path, test_password, create=False)
+        mock_manager_class.assert_called_once_with(
+            temp_output_path, test_password, create=False
+        )
         assert result.total == 3
 
     @patch("keyring_to_kdbx.exporter.KdbxManager")
@@ -447,11 +457,15 @@ class TestBackupFunctionality:
         mock_manager.find_entry.return_value = None
         mock_manager_class.return_value = mock_manager
 
-        exporter = KeyringExporter(temp_output_path, test_password, create_backup=True)
+        exporter = KeyringExporter(
+            temp_output_path, test_password, create_backup=True
+        )
         exporter.export()
 
         # Check backup was created
-        backup_path = temp_output_path.with_suffix(temp_output_path.suffix + ".backup")
+        backup_path = temp_output_path.with_suffix(
+            temp_output_path.suffix + ".backup"
+        )
         assert backup_path.exists()
         assert backup_path.read_text() == "existing content"
 
@@ -467,7 +481,9 @@ class TestBackupFunctionality:
         """Test that multiple backups get incrementing numbers."""
         # Create existing file and backup
         temp_output_path.write_text("content1")
-        backup1 = temp_output_path.with_suffix(temp_output_path.suffix + ".backup")
+        backup1 = temp_output_path.with_suffix(
+            temp_output_path.suffix + ".backup"
+        )
         backup1.write_text("backup1")
 
         entry = KeyringEntry("service", "user", "password")
@@ -479,11 +495,15 @@ class TestBackupFunctionality:
         mock_manager.find_entry.return_value = None
         mock_manager_class.return_value = mock_manager
 
-        exporter = KeyringExporter(temp_output_path, test_password, create_backup=True)
+        exporter = KeyringExporter(
+            temp_output_path, test_password, create_backup=True
+        )
         exporter.export()
 
         # Check new backup was created with number
-        backup2 = temp_output_path.with_suffix(temp_output_path.suffix + ".backup1")
+        backup2 = temp_output_path.with_suffix(
+            temp_output_path.suffix + ".backup1"
+        )
         assert backup2.exists()
         assert backup2.read_text() == "content1"
         assert backup1.read_text() == "backup1"  # Original backup unchanged
