@@ -18,11 +18,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Three group organisation strategies: flat, by-service, by-domain
 - Automatic backup of existing KDBX files before modification
 - Password-protected KDBX encryption with AES-256
+- **KeePassXC Secret Service integration** - Exported entries preserve all original keyring attributes (such as `service`, `application`, `xdg:schema`, etc.) as KDBX custom properties for seamless integration with KeePassXC's libsecret backend
 - Command-line interface with comprehensive options
 - Programmatic Python API for automation
-- 47 unit tests with 65% code coverage
+- 54 unit tests with 66% code coverage focused on behavioral verification
 - Comprehensive documentation (README, AGENTS, QUICKSTART)
 - Example scripts for programmatic usage
+- Testing philosophy documentation emphasizing behavior verification over auto-referencing
+- Self-documenting directives system in AGENTS.md for capturing general instructions
 
 ### Security
 

@@ -49,6 +49,7 @@ Reads credentials from your system keyring (GNOME Keyring, macOS Keychain, Windo
 - ✅ Export from system keyring to KDBX format
 - ✅ Create new or update existing KeePass databases
 - ✅ Password-protected encryption (AES-256)
+- ✅ **KeePassXC Secret Service integration** - Exported entries include custom attributes for seamless integration with KeePassXC's libsecret backend
 - ✅ Automatic backup before modifying existing files
 - ✅ Configurable conflict resolution (skip, overwrite, rename)
 - ✅ Flexible organisation (flat, by-service, by-domain)
@@ -82,7 +83,7 @@ uv run pytest tests/test_exporter.py -v
 uv run pytest tests/ --cov --cov-report=html
 ```
 
-**Current coverage:** 65% (47 tests passing)
+**Current coverage:** 66% (53 tests passing)
 
 ### Code Quality
 
@@ -193,6 +194,43 @@ print(f"Errors: {result.errors}")
 
 Full example: [examples/export_example.py](examples/export_example.py)
 
+## KeePassXC Integration
+
+**This is the primary purpose of this tool:** Exported KDBX entries are fully compatible with KeePassXC's Secret Service (libsecret) integration.
+
+### What This Means
+
+When you enable KeePassXC as your Secret Service provider on Linux, applications using libsecret will be able to find and use the credentials exported by this tool. This creates a seamless bridge between system keyring and KeePassXC.
+
+### How It Works
+
+Each exported entry preserves the original Secret Service custom attributes from the keyring, which may include:
+- **`service`** - The service name
+- **`application`** - The application that created the credential
+- **`username`** - The username (if stored as attribute)
+- **`xdg:schema`** - The schema identifier
+- Any other custom attributes present in the original keyring entry
+
+These preserved attributes allow KeePassXC to match credential requests from applications when acting as a Secret Service backend, maintaining full compatibility with the original keyring behaviour.
+
+### Typical Workflow
+
+1. Export your system keyring credentials to KDBX:
+   ```bash
+   uv run keyring-to-kdbx export -o passwords.kdbx
+   ```
+
+2. Open the KDBX file in KeePassXC
+
+3. Enable Secret Service integration in KeePassXC:
+   - Go to Tools → Settings → Secret Service Integration
+   - Enable "Enable KeePassXC Freedesktop.org Secret Service integration"
+   - Select which database(s) to expose
+
+4. Applications using libsecret will now query KeePassXC, which can find the exported credentials using the custom attributes
+
+This allows you to move from platform-specific keyring storage to cross-platform KeePassXC whilst maintaining compatibility with existing applications.
+
 ## Documentation
 
 - **[docs/QUICKSTART.md](docs/QUICKSTART.md)** - User guide with examples and troubleshooting
@@ -291,7 +329,7 @@ Review the code, understand what it does, and ensure it meets your security requ
 
 - **Version**: 0.1.0
 - **Status**: Functional, experimental
-- **Tests**: 47 passing, 65% coverage
+- **Tests**: 54 passing, 66% coverage
 - **Python**: 3.9+
 - **Licence**: CC0 (Public Domain)
 - **Repository**: https://github.com/McCio/keyring-to-kdbx

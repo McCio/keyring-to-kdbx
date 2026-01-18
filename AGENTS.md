@@ -14,7 +14,12 @@ This file provides:
 
 **keyring-to-kdbx** exports credentials from system keyrings (Linux, macOS, Windows) to KeePass database files (KDBX format). It bridges the gap between platform-specific credential storage and portable password management.
 
+### Primary Purpose
+
+**Enable KeePassXC Secret Service integration** - The tool's main goal is to export keyring credentials in a way that KeePassXC can seamlessly use when acting as a Secret Service provider on Linux.
+
 ### Use Cases
+- **KeePassXC Migration**: Export system keyring to KeePassXC while maintaining application compatibility via Secret Service
 - **Backup**: Create portable backups of system keyring credentials
 - **Migration**: Transfer credentials between systems or keyring implementations
 - **Consolidation**: Merge keyring entries into existing KeePass databases
@@ -60,7 +65,9 @@ The system follows a clean separation of concerns with four main components:
   - Add, update, and find entries
   - Organize entries into groups
   - Save encrypted databases with password protection
+  - **Preserve Secret Service attributes** from original keyring for KeePassXC integration
 - **Library**: Uses `pykeepass` for database manipulation
+- **KeePassXC Integration**: Automatically preserves all original custom attributes from keyring entries as KDBX custom properties for Secret Service compatibility
 
 #### 3. KeyringExporter (`exporter.py`)
 - **Purpose**: Orchestrate the export process
@@ -107,11 +114,12 @@ System Keyring → KeyringReader.get_all_credentials()
 
 ### Key Design Decisions
 
-1. **Strategy Pattern**: Conflict resolution and group organisation use enums, allowing runtime configuration without code changes
-2. **Backend Abstraction**: KeyringReader handles multiple keyring backends transparently
-3. **Immutable Entry Objects**: `KeyringEntry` dataclass prevents accidental mutation
-4. **Explicit Password Handling**: Passwords never logged or printed, hidden in `__repr__`
-5. **Backup Before Modify**: Optional but encouraged for data safety
+1. **KeePassXC Secret Service Integration**: All entries automatically preserve original keyring attributes (such as `service`, `application`, `xdg:schema`, etc.) as KDBX custom properties for KeePassXC libsecret compatibility
+2. **Strategy Pattern**: Conflict resolution and group organisation use enums, allowing runtime configuration without code changes
+3. **Backend Abstraction**: KeyringReader handles multiple keyring backends transparently
+4. **Immutable Entry Objects**: `KeyringEntry` dataclass prevents accidental mutation
+5. **Explicit Password Handling**: Passwords never logged or printed, hidden in `__repr__`
+6. **Backup Before Modify**: Optional but encouraged for data safety
 
 ## Maintenance Directives
 
@@ -119,7 +127,28 @@ System Keyring → KeyringReader.get_all_credentials()
 
 When modifying this project, you MUST follow these rules:
 
-#### 1. Documentation Synchronization
+#### 1. Self-Documenting Directives
+
+**Capture general instructions and approaches in documentation**:
+
+When a general development approach, workflow instruction, or architectural decision is communicated (whether by a human developer or through AI interaction), it MUST be documented in the appropriate file(s) so it does not need to be repeated in future sessions.
+
+**Where to document**:
+- **Architecture decisions** → `AGENTS.md` (Architecture section)
+- **Development workflows** → `AGENTS.md` (Development Guidelines section)
+- **Maintenance rules** → `AGENTS.md` (Maintenance Directives section)
+- **User-facing processes** → `README.md` or `docs/QUICKSTART.md`
+- **AI development practices** → `docs/AI_DEVELOPMENT.md`
+
+**Examples of what to capture**:
+- "Always run tests before committing" → Document in Development Workflow
+- "Use British English throughout" → Already documented in Context for AI Agents
+- "Group similar functions together" → Document in Code Quality Standards
+- "Prioritise security in credential handling" → Already documented in Security Considerations
+
+**Purpose**: This creates a self-reinforcing documentation system where each interaction improves the project's knowledge base, reducing the need for repeated instructions and ensuring consistency across development sessions.
+
+#### 2. Documentation Synchronization
 
 **Update ALL documentation files** when making changes:
 
@@ -138,7 +167,7 @@ When modifying this project, you MUST follow these rules:
 
 **Verification**: Search all `.md` files for references to changed code/features and update accordingly.
 
-#### 2. Test Coverage
+#### 3. Test Coverage
 
 **Write or update tests** for all code changes:
 
@@ -157,7 +186,7 @@ uv run pytest tests/ -v --cov
 - `tests/test_kdbx_manager.py` - Database operation tests
 - `tests/test_exporter.py` - Integration and strategy tests
 
-#### 3. Example Maintenance
+#### 4. Example Maintenance
 
 **Keep examples functional** and aligned with API:
 
@@ -165,7 +194,7 @@ uv run pytest tests/ -v --cov
 - Add new examples for significant features
 - Test examples manually after API changes
 
-#### 4. Code Quality Standards
+#### 5. Code Quality Standards
 
 **Maintain quality** with automated tools:
 
@@ -186,7 +215,7 @@ uv run ruff check . && uv run pytest tests/
 - Max line length: 100 characters
 - Follow PEP 8 via ruff configuration
 
-#### 5. Dependency Management
+#### 6. Dependency Management
 
 **When adding dependencies**:
 
@@ -195,17 +224,53 @@ uv run ruff check . && uv run pytest tests/
 3. Document in README if user-facing
 4. Consider stability (`exclude-newer = "1 week"` in effect)
 
+#### 7. Commit Message Standards
+
+**Follow Conventional Commits specification** for all commit messages:
+
+Format: `<type>(<scope>): <description>`
+
+**Common types**:
+- `feat:` - New feature (triggers MINOR version bump)
+- `fix:` - Bug fix (triggers PATCH version bump)
+- `docs:` - Documentation changes only
+- `test:` - Test additions or modifications
+- `refactor:` - Code refactoring without feature/fix
+- `style:` - Code style changes (formatting, etc.)
+- `chore:` - Build process, dependencies, tooling
+- `perf:` - Performance improvements
+
+**Guidelines**:
+- Use lowercase for type
+- Keep description concise and imperative mood ("add feature" not "added feature")
+- Scope is optional but recommended (e.g., `feat(kdbx): add group support`)
+- Add `BREAKING CHANGE:` footer for breaking changes (triggers MAJOR version bump)
+- Reference issues when relevant (e.g., `Fixes #123`)
+
+**Examples**:
+```
+feat: preserve original keyring attributes for KeePassXC integration
+fix: handle empty password fields correctly
+docs: update KeePassXC integration workflow
+test: add behavioral verification for attribute preservation
+```
+
+See: https://www.conventionalcommits.org/
+
 ### Change Verification Checklist
 
 Before considering any change complete:
 
+- [ ] General instructions captured in appropriate documentation
 - [ ] All `.md` files reviewed and updated as needed
 - [ ] Tests added/updated and passing (`uv run pytest tests/`)
+- [ ] **Tests verify behavior, not auto-reference** (see Testing Strategy)
 - [ ] Examples tested if API changed
 - [ ] Ruff check passes (`uv run ruff check .`)
 - [ ] Type hints added for new code
 - [ ] Docstrings added/updated
 - [ ] CHANGELOG.md entry added
+- [ ] **Commit message follows Conventional Commits format**
 - [ ] Cross-references in docs still valid
 - [ ] Documentation maintains coherent structure (not patched-up)
 
@@ -281,6 +346,23 @@ uv run ruff check . && uv run pytest tests/
 
 ### Testing Strategy
 
+**Test Philosophy - Behavior Over Auto-Referencing**:
+
+Tests MUST verify actual behavior, not just that code was called. Avoid "auto-referencing" tests that simply verify Python's basic functionality (assignment, dataclasses, etc.) or that mocks were called without checking logic.
+
+**Good tests**:
+- Verify business logic and decision-making
+- Check that edge cases are handled correctly
+- Ensure security properties (e.g., password hiding)
+- Validate data transformations (e.g., domain extraction)
+- Confirm error handling behavior (returns None vs raises exception)
+
+**Bad tests (auto-referencing)**:
+- Testing that setting a value makes it equal to that value
+- Testing that calling a method results in that method being called
+- Testing Python's built-in functionality (dataclass creation, etc.)
+- Tests where all behavior is mocked with no logic verification
+
 **Test pyramid**:
 - **Unit tests**: Test individual components in isolation with mocks
 - **Integration tests**: Test component interactions
@@ -291,6 +373,14 @@ uv run ruff check . && uv run pytest tests/
 - Mock `PyKeePass` for database operations
 - Use `tmp_path` fixture for file operations
 - Avoid actual system keyring access in automated tests
+- **Always verify behavior**, not just that mocks were called
+
+**Examples of good behavioral tests**:
+- `test_keyring_entry_repr_hides_password` - Verifies password hiding logic
+- `test_conflict_resolution_skip` - Verifies skip logic (skipped count increases, no adds)
+- `test_group_strategy_domain` - Verifies domain extraction (checks "example.com" extracted)
+- `test_get_credential_returns_none_not_exception` - Verifies error handling approach
+- `test_test_backend_verifies_round_trip` - Verifies all three operations occur
 
 ### Error Handling
 
@@ -365,6 +455,10 @@ This project is:
 - **keyring**: https://github.com/jaraco/keyring
 - **pykeepass**: https://github.com/libkeepass/pykeepass
 - **KeePass**: https://keepass.info/
+- **KeePassXC**: https://keepassxc.org/
+- **KeePassXC Secret Service Integration**: https://keepassxc.org/docs/KeePassXC_GettingStarted.html#_secret_service_integration
+- **Secret Service API**: https://specifications.freedesktop.org/secret-service/
+- **Conventional Commits**: https://www.conventionalcommits.org/
 
 ---
 
