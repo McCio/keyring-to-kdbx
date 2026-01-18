@@ -5,17 +5,7 @@ Export system keyring credentials to KeePass database (KDBX) format.
 [![Licence: CC0](https://img.shields.io/badge/License-CC0_1.0-lightgrey.svg)](http://creativecommons.org/publicdomain/zero/1.0/)
 [![Python: 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 
-## ⚠️ AI-Generated Project
 
-This project was created entirely through **AI-assisted "vibe-coding"** with Claude (Anthropic). All code, architecture, tests, and documentation were generated through conversational programming with an AI assistant.
-
-**What this means:**
-- Code is functional and tested, but may have edge cases
-- Architecture emerged from conversation, not formal design
-- This is an experiment in AI-assisted development
-- Review thoroughly before production use
-
-**Why disclose this?** Transparency about AI involvement helps users make informed decisions and contributes to understanding AI-assisted development workflows.
 
 ## Quick Start
 
@@ -50,6 +40,7 @@ Reads credentials from your system keyring (GNOME Keyring, macOS Keychain, Windo
 - ✅ Create new or update existing KeePass databases
 - ✅ Password-protected encryption (AES-256)
 - ✅ **KeePassXC Secret Service integration** - Exported entries include custom attributes for seamless integration with KeePassXC's libsecret backend
+- ✅ **Custom attribute preservation** - All original keyring metadata mapped to KDBX custom properties
 - ✅ Automatic backup before modifying existing files
 - ✅ Configurable conflict resolution (skip, overwrite, rename)
 - ✅ Flexible organisation (flat, by-service, by-domain)
@@ -294,16 +285,7 @@ See [LICENCE](LICENCE) for full legal text.
 - **Tools**: uv, ruff, pytest
 - **Inspiration**: Need for portable keyring backups
 
-## Known Limitations
 
-Be aware of these current limitations:
-
-- **Backend Support**: Not all keyring backends support credential enumeration (particularly macOS Keychain and Windows Credential Manager have limited support)
-- **Metadata**: Only basic credential data exported (service, username, password)
-- **Attachments**: No support for file attachments or binary data
-- **Custom Fields**: Keyring custom attributes may not map to KDBX fields
-- **Performance**: Large keyrings (1000+ entries) may take time to process
-- **Platform-Specific**: Some features only available on Unix-like systems (e.g., file permission setting)
 
 ## Future Enhancements
 
@@ -316,14 +298,23 @@ Potential improvements for future versions:
 5. **GUI Interface**: Optional graphical frontend
 6. **Key File Support**: KDBX encryption with key files in addition to passwords
 7. **Batch Operations**: Export from multiple keyrings at once
-8. **Custom Field Mapping**: Map keyring metadata to KDBX custom fields
-9. **Enhanced macOS/Windows Support**: Improved credential enumeration on these platforms
+8. **Enhanced macOS/Windows Support**: Improved credential enumeration on these platforms
 
 ## Disclaimer
 
+**⚠️ AI-Generated Project**
+
+This project was created entirely through **AI-assisted "vibe-coding"** with Claude (Anthropic). All code, architecture, tests, and documentation were generated through conversational programming with an AI assistant.
+
 **This is AI-generated software provided "as is" without warranty.** While functional and tested, it was created through conversational programming and should be reviewed before production use, especially with sensitive credential data.
 
-Review the code, understand what it does, and ensure it meets your security requirements before using with real credentials.
+**What this means:**
+- Code is functional and tested, but may have edge cases
+- Architecture emerged from conversation, not formal design
+- This is an experiment in AI-assisted development
+- Review the code, understand what it does, and ensure it meets your security requirements before using with real credentials
+
+**Why disclose this?** Transparency about AI involvement helps users make informed decisions and contributes to understanding AI-assisted development workflows.
 
 ## Status
 

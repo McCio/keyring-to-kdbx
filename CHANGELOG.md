@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Export credentials from system keyring to KeePass KDBX format
+- Custom attribute preservation - All original keyring metadata mapped to KDBX custom properties (enables KeePassXC Secret Service integration)
 - Support for Linux (GNOME Keyring, KWallet), macOS (Keychain), and Windows (Credential Manager)
 - Create new or update existing KDBX databases
 - Three conflict resolution strategies: skip, overwrite, rename

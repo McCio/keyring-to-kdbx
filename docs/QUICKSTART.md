@@ -502,10 +502,8 @@ If you encounter issues:
 
 Be aware of these current limitations:
 
-- **Backend Support**: Not all keyring backends support credential enumeration
-- **Metadata**: Limited keyring metadata is exported (service, username, password)
+- **Backend Support**: Not all keyring backends support credential enumeration (particularly macOS Keychain and Windows Credential Manager)
 - **Attachments**: No support for file attachments
-- **Custom Fields**: Keyring custom attributes may not map to KDBX
 - **Performance**: Large keyrings (1000+ entries) may take time
 
 See [AGENTS.md](../AGENTS.md) "Future Enhancements" for planned improvements.
