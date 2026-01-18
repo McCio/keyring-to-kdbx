@@ -9,6 +9,14 @@ import keyring
 from keyring.backend import KeyringBackend
 from keyring.backends.fail import Keyring as FailKeyring
 
+# Optional secretstorage for better SecretService support
+try:
+    import secretstorage
+
+    HAS_SECRETSTORAGE = True
+except ImportError:
+    HAS_SECRETSTORAGE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -99,24 +107,56 @@ class KeyringReader:
             except Exception as e:
                 logger.warning(f"get_all_credentials failed: {e}")
 
-        # Try to use get_preferred_collection method (SecretService backend)
-        elif hasattr(self.backend, "get_preferred_collection"):
-            logger.debug("Using get_preferred_collection method")
+        # Try to use secretstorage directly to get all collections (SecretService backend)
+        elif HAS_SECRETSTORAGE and hasattr(
+            self.backend, "get_preferred_collection"
+        ):
+            logger.debug("Using secretstorage to enumerate all collections")
             try:
-                collection = self.backend.get_preferred_collection()
-                if collection is not None:
+                connection = secretstorage.dbus_init()
+                collections = list(
+                    secretstorage.get_all_collections(connection)
+                )
+                logger.debug(f"Found {len(collections)} collections")
+
+                for collection in collections:
+                    if collection.is_locked():
+                        logger.debug(
+                            f"Skipping locked collection: {collection.get_label()}"
+                        )
+                        continue
+
+                    logger.debug(
+                        f"Processing collection: {collection.get_label()}"
+                    )
                     for item in collection.get_all_items():
                         attributes = item.get_attributes()
-                        service = attributes.get(
-                            "service", attributes.get("application", "unknown")
-                        )
-                        username = attributes.get(
-                            "username", attributes.get("user", "")
+
+                        # Extract service from various possible attributes
+                        service = (
+                            attributes.get("service")
+                            or attributes.get("server")
+                            or attributes.get("url")
+                            or attributes.get("application")
+                            or item.get_label()
                         )
 
-                        if service and username:
-                            password = keyring.get_password(service, username)
-                            if password:
+                        # Extract username from various possible attributes
+                        username = (
+                            attributes.get("username")
+                            or attributes.get("user")
+                            or attributes.get("account")
+                            or ""
+                        )
+
+                        # Get secret directly from item
+                        try:
+                            secret_bytes = item.get_secret()
+                            if secret_bytes:
+                                password = secret_bytes.decode(
+                                    "utf-8", errors="replace"
+                                )
+
                                 yield KeyringEntry(
                                     service=service,
                                     username=username,
@@ -125,8 +165,12 @@ class KeyringReader:
                                     if attributes
                                     else None,
                                 )
+                        except Exception as e:
+                            logger.debug(
+                                f"Failed to get secret for {service}: {e}"
+                            )
             except Exception as e:
-                logger.warning(f"get_preferred_collection failed: {e}")
+                logger.warning(f"secretstorage enumeration failed: {e}")
 
         # Try to use the collection property (SecretService backend)
         elif (
